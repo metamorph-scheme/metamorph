@@ -23,7 +23,7 @@ data MetaNode = LambdaNode [MetaNode] MetaNode MetaNode
 
 
 parseScheme :: [Token] -> MetaNode
-parseScheme st = case runState (parseExpr "Scheme Program")  st of
+parseScheme st = case runState (parseExpression "Scheme Program")  st of
     (mn, []) -> mn
     (_, t:_) -> error $ "Unexpected token " ++ show t ++  " not allowed in current context"
 
@@ -60,8 +60,8 @@ peek context = do
         (t:ts) -> return t 
         _ -> error $ "Unexpected end of token stream in " ++ context 
 
-parseExpr :: String -> State [Token] MetaNode
-parseExpr context = do
+parseExpression :: String -> State [Token] MetaNode
+parseExpression context = do
     t <- peek context
     case t of
         POpen -> parseSyntax
@@ -121,17 +121,17 @@ parseQuasiQuote = do
 parseLambda :: State [Token] MetaNode
 parseLambda = do
     pullEq "Lambda" Lambda
-    (c, l) <- parseFormalParams
-    e <- parseExpr "Lambda Body"
+    (c, l) <- parseFormalParameters
+    e <- parseExpression "Lambda Body"
     pullEq "Lambda" PClose
     return (LambdaNode c l e) 
 
 parseIf :: State [Token] MetaNode
 parseIf = do
     pullEq "If" If
-    p <- parseExpr "If Condition"
-    a <- parseExpr "If Then Branch"
-    b <- parseExpr "If Else Branch"
+    p <- parseExpression "If Condition"
+    a <- parseExpression "If Then Branch"
+    b <- parseExpression "If Else Branch"
     pullEq "If" PClose
     return (IfNode p a b)  
 
@@ -141,7 +141,7 @@ parseSet = do
     t <- pull "Set"
     case t of 
         (Identifier str) -> do
-            e <- parseExpr "Set Body"
+            e <- parseExpression "Set Body"
             pullEq "Set" PClose
             return (SetNode (IdentifierAtom str) e)
         _ -> error "Expected Identifier as first argument of set"
@@ -152,7 +152,7 @@ parseDefine = do
     t <- pull "Define"
     case t of 
         (Identifier str) -> do
-            e <- parseExpr "Define Body"
+            e <- parseExpression "Define Body"
             pullEq "Define" PClose
             return (DefineNode (IdentifierAtom str) e)
         _ -> error "Expected Identifier as first argument of define"
@@ -160,7 +160,7 @@ parseDefine = do
 
 parseApplication :: State [Token] MetaNode
 parseApplication = do
-    f <- parseExpr "Application"
+    f <- parseExpression "Application"
     arg <- parseArgumentList
     return (ApplicationNode f arg)
 
@@ -170,14 +170,14 @@ parseQuotedDatum = do
     case t of        
         POpen -> do
             pullEq "Compound Datum" POpen
-            ListNode <$> parseCompoundDatum
+            ListNode <$> parseQuotedCompoundDatum
         ShortQuote -> parseQuotedShortForm
         ShortUnquote -> parseQuotedShortForm
         ShortQuasiQuote -> parseQuotedShortForm
         _ -> parseAtom
 
-parseCompoundDatum :: State [Token] [MetaNode]
-parseCompoundDatum = do
+parseQuotedCompoundDatum :: State [Token] [MetaNode]
+parseQuotedCompoundDatum = do
     t <- peek "Compound Datum"
     case t of 
         PClose -> do
@@ -185,7 +185,7 @@ parseCompoundDatum = do
             return []
         _ -> do
             e <- parseQuotedDatum
-            es <- parseCompoundDatum
+            es <- parseQuotedCompoundDatum
             return (e:es)
 
 parseQuotedShortForm :: State [Token] MetaNode
@@ -198,18 +198,14 @@ parseQuasiQuotedDatum = do
     t <- peek "Quasiquoted Datum"
     case t of        
         POpen -> do
-            pullEq "Quasiquoted Datum" POpen
+            pullEq "Quasiquoted Datum" POpen 
             t <- peek "Quasiquoted Datum"
             case t of
-                Unquote -> do
-                    pullEq "Unquoted Expression" Unquote 
-                    e <- parseExpr "Unquoted Expression"
-                    pullEq "Unquoted Expression" PClose
-                    return e
+                Unquote -> parseUnquotedExpression
                 _ -> ListNode <$> parseQuasiQuotedCompoundDatum
         ShortUnquote -> do
             pullEq "Unquoted Expression" ShortUnquote
-            parseExpr "Unquoted Expression"
+            parseExpression "Unquoted Expression"
         ShortQuote -> parseQuasiQuotedShortForm
         ShortQuasiQuote -> parseQuasiQuotedShortForm
         _ -> parseAtom
@@ -231,6 +227,13 @@ parseQuasiQuotedShortForm = do
     t <- pull "Quasiquoted Shortform"
     ListNode <$> ((\x -> [(IdentifierAtom (show t)),x]) <$> parseQuasiQuotedDatum)
 
+parseUnquotedExpression :: State [Token] MetaNode
+parseUnquotedExpression = do
+    pullEq "Unquoted Expression" Unquote 
+    e <- parseExpression "Unquoted Expression"
+    pullEq "Unquoted Expression" PClose
+    return e
+
 parseArgumentList :: State [Token] [MetaNode]
 parseArgumentList = do
     t <- peek "Argumentlist"
@@ -239,20 +242,20 @@ parseArgumentList = do
             pullEq "Argumentlist" PClose
             return []
         _ -> do
-            e <- parseExpr "Argument"
+            e <- parseExpression "Argument"
             es <- parseArgumentList
             return (e:es)
 
-parseFormalParams :: State [Token] ([MetaNode], MetaNode)
-parseFormalParams = do
+parseFormalParameters :: State [Token] ([MetaNode], MetaNode)
+parseFormalParameters = do
     t <- pull "Formal Paramters"
     case t of
-        POpen -> parseIdentifierList
+        POpen -> parseFormalParameterList
         Identifier s -> return ([],IdentifierAtom s)  
         _ -> error "Expected parameter list or single parameter in lambda definition"
 
-parseIdentifierList :: State [Token] ([MetaNode], MetaNode)
-parseIdentifierList = do 
+parseFormalParameterList :: State [Token] ([MetaNode], MetaNode)
+parseFormalParameterList = do 
     t <- pull "Formal Paramters"
     case t of 
         PClose -> do
@@ -265,7 +268,7 @@ parseIdentifierList = do
                     return ([], IdentifierAtom str)
                 _ -> error $ "Expected parameter list or single parameter in lambda definition, not token " ++ show t
         Identifier str -> do
-            (is, i) <- parseIdentifierList
+            (is, i) <- parseFormalParameterList
             return ((IdentifierAtom str):is, i)
         _ -> error $ "Expected parameter list or single parameter in lambda definition, not token " ++ show t
                 
