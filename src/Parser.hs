@@ -92,6 +92,7 @@ parseAtom = do
     case t of  
         Bool b -> return $ BoolAtom b
         String s -> return $ StringAtom s
+        Char c -> return $ CharAtom c
         Real n -> return $ RealAtom n
         Integral n -> return $ IntegralAtom n
         Rational n m -> return $ RationalAtom n m
