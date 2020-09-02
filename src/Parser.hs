@@ -257,19 +257,18 @@ parseFormalParameters = do
 
 parseFormalParameterList :: State [Token] ([MetaNode], MetaNode)
 parseFormalParameterList = do 
-    t <- pull "Formal Paramters"
+    t <- pull "Formal Paramterlist"
     case t of 
         PClose -> do
             return ([], IdentifierAtom "")
         Point -> do
-            t <- pull "Formal Paramters"
+            t <- pull "Formal Paramterlist"
             case t of 
                 Identifier str -> do
-                    pullEq "Formal Paramters" PClose
+                    pullEq "Formal Paramterlist" PClose
                     return ([], IdentifierAtom str)
-                _ -> error $ "Expected parameter list or single parameter in lambda definition, not token " ++ show t
+                _ -> error $ "Expected formal parameters in formal parameterlist not token " ++ show t
         Identifier str -> do
             (is, i) <- parseFormalParameterList
             return ((IdentifierAtom str):is, i)
-        _ -> error $ "Expected parameter list or single parameter in lambda definition, not token " ++ show t
-                
+        _ -> error $ "Expected formal parameters in formal parameterlist not token " ++ show t
