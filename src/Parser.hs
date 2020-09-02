@@ -160,7 +160,7 @@ parseDefine = do
 
 parseApplication :: State [Token] MetaNode
 parseApplication = do
-    f <- parseExpression "Application"
+    f <- parseExpression "Lambda Application"
     arg <- parseArgumentList
     return (ApplicationNode f arg)
 
