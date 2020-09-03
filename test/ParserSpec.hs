@@ -15,19 +15,28 @@ p6 = [POpen, If, Identifier "p", POpen, Identifier "*",
 p7 = [POpen,Set, Identifier "x", POpen, Lambda, Identifier "arglist", POpen, Identifier "length"
     , Identifier "arglist", PClose,PClose, PClose]
 
+p8 = [ShortQuasiQuote, POpen, Identifier "x", ShortUnquote, POpen, Identifier "*",
+    Real 3, Real 4, PClose, POpen, Identifier "c", Point, POpen, Integral 3, Integral 4,
+     ShortUnquote,POpen, Identifier "+", Real 3, Real 9, PClose ,PClose, PClose,PClose]
+
 n1 = ApplicationNode (IdentifierAtom "+") [IntegralAtom 2,IntegralAtom 5]
 n2 = ApplicationNode (LambdaNode [IdentifierAtom "x",IdentifierAtom "y"] 
     (IdentifierAtom "z") (ApplicationNode (IdentifierAtom "/") [IdentifierAtom "x",
     IdentifierAtom "y"])) [IntegralAtom 3,IntegralAtom 9,IntegralAtom 4,StringAtom "sdf"] 
-n3 = ListNode [IdentifierAtom "*",IntegralAtom 2,IdentifierAtom "a"]
-n4 = ListNode [IdentifierAtom "*",IntegralAtom 2,ListNode [IntegralAtom 3,
-    IntegralAtom 5],IdentifierAtom "a"]
-n5 = ListNode [IdentifierAtom "*",IntegralAtom 4,ApplicationNode 
-    (IdentifierAtom "+") [RealAtom 3.4,IdentifierAtom "PI"],IdentifierAtom "t"]
-n6 = IfNode (IdentifierAtom "p") (ApplicationNode (IdentifierAtom "*") 
-    [RealAtom 3.5,IntegralAtom 4]) (ListNode [RealAtom 5.0,RealAtom 9.4])
+n3 = PairNode (IdentifierAtom "*") (PairNode (IntegralAtom 2) (PairNode (IdentifierAtom "a") EmptyAtom))
+n4 =PairNode (IdentifierAtom "*") (PairNode (IntegralAtom 2) (PairNode (PairNode (IntegralAtom 3) 
+    (PairNode (IntegralAtom 5) EmptyAtom)) (PairNode (IdentifierAtom "a") EmptyAtom)))
+n5 =PairNode (IdentifierAtom "*") (PairNode (IntegralAtom 4) (PairNode (ApplicationNode (IdentifierAtom "+") 
+    [RealAtom 3.4,IdentifierAtom "PI"]) (PairNode (IdentifierAtom "t") EmptyAtom)))
+n6 = IfNode (IdentifierAtom "p") (ApplicationNode (IdentifierAtom "*") [RealAtom 3.5,IntegralAtom 4]) 
+    (PairNode (RealAtom 5.0) (PairNode (RealAtom 9.4) EmptyAtom))
 n7 = SetNode (IdentifierAtom "x") (LambdaNode [] (IdentifierAtom "arglist") 
     (ApplicationNode (IdentifierAtom "length") [IdentifierAtom "arglist"]))
+n8 = PairNode (IdentifierAtom "x") (PairNode (ApplicationNode (IdentifierAtom "*") 
+    [RealAtom 3.0,RealAtom 4.0]) (PairNode (PairNode (IdentifierAtom "c") 
+    (PairNode (IntegralAtom 3) (PairNode (IntegralAtom 4) (PairNode 
+    (ApplicationNode (IdentifierAtom "+") [RealAtom 3.0,RealAtom 9.0]) EmptyAtom)))) 
+    EmptyAtom))
 
 spec :: Spec
 spec =
@@ -46,5 +55,7 @@ spec =
             parseScheme p6 `shouldBe` n6
         it "Parses p7 correct" $ do
             parseScheme p7 `shouldBe` n7
+        it "Parses p8 correct" $ do
+            parseScheme p8 `shouldBe` n8
 
 

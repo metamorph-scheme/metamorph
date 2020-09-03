@@ -14,18 +14,17 @@ data Token  = Lambda | If | Set | POpen | PClose | Identifier String | Quote | S
             | Point | QuasiQuote | ShortQuasiQuote | Unquote | ShortUnquote | UnquoteSplice 
             | ShortUnquoteSplice | Label Integer | LabelRef Integer | Define deriving (Eq, Show) 
 
-data MetaNode = LambdaNode [MetaNode] MetaNode MetaNode 
-            | ListNode [MetaNode] | RealAtom Double | IntegralAtom Int | RationalAtom Int Int 
+data MetaNode = LambdaNode [MetaNode] MetaNode MetaNode | PairNode MetaNode MetaNode 
+            | RealAtom Double | IntegralAtom Int | RationalAtom Int Int | EmptyAtom
             | StringAtom String | ComplexAtom (Complex Double) | BoolAtom Bool | CharAtom Char 
             | IdentifierAtom String | ApplicationNode MetaNode [MetaNode] 
             | IfNode MetaNode MetaNode MetaNode | SetNode MetaNode MetaNode | DefineNode MetaNode MetaNode 
             deriving (Eq, Show)
 
-
 parseScheme :: [Token] -> MetaNode
 parseScheme st = case runState (parseExpression "Scheme Program")  st of
     (mn, []) -> mn
-    (_, t:_) -> error $ "Unexpected token " ++ show t ++  " not allowed in current context"
+    (_, t:_) -> error $ "Unexpected token " ++ show t ++  " not allowed in top level of program"
 
 push :: Token -> State [Token] ()
 push t = do
@@ -171,28 +170,34 @@ parseQuotedDatum = do
     case t of        
         POpen -> do
             pullEq "Compound Datum" POpen
-            ListNode <$> parseQuotedCompoundDatum
+            parseQuotedCompoundDatum
         ShortQuote -> parseQuotedShortForm
         ShortUnquote -> parseQuotedShortForm
         ShortQuasiQuote -> parseQuotedShortForm
         _ -> parseAtom
 
-parseQuotedCompoundDatum :: State [Token] [MetaNode]
+parseQuotedCompoundDatum :: State [Token] MetaNode
 parseQuotedCompoundDatum = do
     t <- peek "Compound Datum"
     case t of 
         PClose -> do
             pullEq "Compound Datum" PClose
-            return []
+            return EmptyAtom
+        Point -> do
+            pullEq "Compound Datum" Point
+            end <- parseQuotedDatum
+            pullEq "Compound Datum" PClose
+            return end
         _ -> do
             e <- parseQuotedDatum
             es <- parseQuotedCompoundDatum
-            return (e:es)
+            return (PairNode e es)
 
 parseQuotedShortForm :: State [Token] MetaNode
 parseQuotedShortForm = do
     t <- pull "Quoted Shortform"
-    ListNode <$> ((\x -> [(IdentifierAtom (show t)),x]) <$> parseQuotedDatum)
+    d <- parseQuotedDatum
+    return $ PairNode (IdentifierAtom (show t)) (PairNode d EmptyAtom)
 
 parseQuasiQuotedDatum :: State [Token] MetaNode
 parseQuasiQuotedDatum = do
@@ -203,7 +208,7 @@ parseQuasiQuotedDatum = do
             t <- peek "Quasiquoted Datum"
             case t of
                 Unquote -> parseUnquotedExpression
-                _ -> ListNode <$> parseQuasiQuotedCompoundDatum
+                _ -> parseQuasiQuotedCompoundDatum
         ShortUnquote -> do
             pullEq "Unquoted Expression" ShortUnquote
             parseExpression "Unquoted Expression"
@@ -211,22 +216,28 @@ parseQuasiQuotedDatum = do
         ShortQuasiQuote -> parseQuasiQuotedShortForm
         _ -> parseAtom
 
-parseQuasiQuotedCompoundDatum :: State [Token] [MetaNode]
+parseQuasiQuotedCompoundDatum :: State [Token] MetaNode
 parseQuasiQuotedCompoundDatum = do
     t <- peek "Quasiquoted Compound Datum"
     case t of 
         PClose -> do
             pullEq "Quasiquoted Compound Datum" PClose
-            return []
+            return EmptyAtom
+        Point -> do
+            pullEq "Quasiquoted Compound Datum" Point
+            end <- parseQuasiQuotedDatum
+            pullEq "Quasiquoted Compound Datum" PClose
+            return end
         _ -> do
             e <- parseQuasiQuotedDatum
             es <- parseQuasiQuotedCompoundDatum
-            return (e:es)
+            return (PairNode e es)
 
 parseQuasiQuotedShortForm :: State [Token] MetaNode
 parseQuasiQuotedShortForm = do
     t <- pull "Quasiquoted Shortform"
-    ListNode <$> ((\x -> [(IdentifierAtom (show t)),x]) <$> parseQuasiQuotedDatum)
+    d <- parseQuasiQuotedDatum
+    return $ PairNode (IdentifierAtom (show t)) (PairNode d EmptyAtom)
 
 parseUnquotedExpression :: State [Token] MetaNode
 parseUnquotedExpression = do
