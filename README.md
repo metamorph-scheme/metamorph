@@ -1,2 +1,2 @@
 # MetaMorph
-<img alt="MetaMorph" src="https://raw.githubusercontent.com/rapgru/dreamalyse/master/public/icons/big.png" width="400">
+<img alt="MetaMorph" src="https://github.com/metamorph-scheme/metamorph/blob/TL/AddLogo/icon/logoLight.png" width="400">
