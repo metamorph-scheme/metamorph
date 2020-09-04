@@ -14,7 +14,7 @@ data Token  = Lambda | If | Set | POpen | PClose | Identifier String | Quote | S
             | Point | QuasiQuote | ShortQuasiQuote | Unquote | ShortUnquote | UnquoteSplice 
             | ShortUnquoteSplice | Label Integer | LabelRef Integer | Define deriving (Eq, Show) 
 
-data MetaNode = LambdaNode [MetaNode] MetaNode MetaNode | PairNode MetaNode MetaNode 
+data MetaNode = LambdaNode [MetaNode] MetaNode [MetaNode] | PairNode MetaNode MetaNode 
             | RealAtom Double | IntegralAtom Int | RationalAtom Int Int | EmptyAtom
             | StringAtom String | ComplexAtom (Complex Double) | BoolAtom Bool | CharAtom Char 
             | IdentifierAtom String | ApplicationNode MetaNode [MetaNode] 
@@ -49,7 +49,7 @@ pullEq context c = do
             if  t ==  c then
                 return ()
             else
-                error $ (show c) ++ "in " ++ context ++ " expected, but not found"
+                error $ (show c) ++ " in " ++ context ++ " expected, but not found"
         _ -> error $ "Unexpected end of token stream in " ++ context
 
 peek :: String -> State [Token] Token
@@ -122,8 +122,7 @@ parseLambda :: State [Token] MetaNode
 parseLambda = do
     pullEq "Lambda" Lambda
     (c, l) <- parseFormalParameters
-    e <- parseExpression "Lambda Body"
-    pullEq "Lambda" PClose
+    e <- parseExpressionList "Body"
     return (LambdaNode c l e) 
 
 parseIf :: State [Token] MetaNode
@@ -161,7 +160,7 @@ parseDefine = do
 parseApplication :: State [Token] MetaNode
 parseApplication = do
     f <- parseExpression "Lambda Application"
-    arg <- parseArgumentList
+    arg <- parseExpressionList "Argument"
     return (ApplicationNode f arg)
 
 parseQuotedDatum :: State [Token] MetaNode
@@ -246,17 +245,18 @@ parseUnquotedExpression = do
     pullEq "Unquoted Expression" PClose
     return e
 
-parseArgumentList :: State [Token] [MetaNode]
-parseArgumentList = do
-    t <- peek "Argumentlist"
+parseExpressionList :: String -> State [Token] [MetaNode]
+parseExpressionList  context = do
+    t <- peek (context ++ " List")
     case t of 
         PClose -> do
-            pullEq "Argumentlist" PClose
+            pullEq context PClose
             return []
         _ -> do
-            e <- parseExpression "Argument"
-            es <- parseArgumentList
+            e <- parseExpression context
+            es <- parseExpressionList (context ++ " List")
             return (e:es)
+
 
 parseFormalParameters :: State [Token] ([MetaNode], MetaNode)
 parseFormalParameters = do
