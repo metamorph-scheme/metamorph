@@ -3,6 +3,7 @@ module Lexer.LexerSpec where
 import Lexer.Lexer
 import Lexer.Token
 
+import Control.Exception (evaluate)
 import Test.Hspec
 
 spec :: Spec
@@ -15,7 +16,10 @@ spec = describe "Lexer.scan" $ do
   
   describe "block comment" $ do
     it "can discard block comment" $ do
-      scan "#| my \n block \n comment |#identifier" `shouldBe` [Identifier "identifier"]
+      scan "#| my \n block \n comment |# identifier" `shouldBe` [Identifier "identifier"]
+
+    it "can discard single line block comment" $ do
+      scan "#| my block comment |# identifier" `shouldBe` [Identifier "identifier"]
 
     it "can discard block comment lazily" $ do
       scan "#| my comment |# identa #| comment 2 |#" `shouldBe` [Identifier "identa"]
@@ -36,6 +40,12 @@ spec = describe "Lexer.scan" $ do
     it "can classify two identifiers" $ do
       scan "identa ident2" `shouldBe` [Identifier "identa", Identifier "ident2"]
 
+    it "can classify identifier followed by bracket" $ do
+      scan "identifier(a)" `shouldBe` [Identifier "identifier", POpen, Identifier "a", PClose]
+
+    it "rejects prohibited initial character" $ do
+      evaluate (scan "5dentifier") `shouldThrow` anyErrorCall
+
   it "can classify lambda" $ do
     scan "lambda" `shouldBe` [Lambda]
 
@@ -47,3 +57,35 @@ spec = describe "Lexer.scan" $ do
 
   it "can classify dot" $ do
     scan "." `shouldBe` [Dot]
+
+  describe "datum comment" $ do
+    it "can classify datum comment" $ do
+      scan "#;" `shouldBe` [CommentDatum]
+    
+    it "can classify datum comment with block comment" $ do
+      scan "#;#| abc |#(a)" `shouldBe`
+        [ CommentDatum
+        , POpen
+        , Identifier "a"
+        , PClose
+        ]
+
+    it "can classify datum comment with whitespace" $ do
+      scan "#;  \t\n   (a)" `shouldBe`
+        [ CommentDatum
+        , POpen
+        , Identifier "a"
+        , PClose
+        ]
+
+    it "can classify datum comment with whitespace and block comment" $ do
+      scan "#;#| abc |#     (a)" `shouldBe`
+        [ CommentDatum
+        , POpen
+        , Identifier "a"
+        , PClose
+        ]
+
+  describe "integer" $ do
+    it "can classify integer" $ do
+          scan "324" `shouldBe` [ Integral 324 ]

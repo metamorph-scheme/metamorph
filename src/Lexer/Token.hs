@@ -1,6 +1,5 @@
 module Lexer.Token where
 
-import Data.Data
 import Data.Complex
 
 -- The token type:
