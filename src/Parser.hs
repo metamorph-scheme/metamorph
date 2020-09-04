@@ -24,9 +24,9 @@ data MetaNode = LambdaNode [MetaNode] MetaNode [MetaNode] | PairNode MetaNode Me
             deriving (Eq, Show)
 
 parseScheme :: [Token] -> MetaNode
-parseScheme st = case runState (parseExpression "Scheme Program")  st of
+parseScheme st = case runState (parseExpression "Scheme Program") st of
     (mn, []) -> mn
-    (_, t:_) -> error $ "Unexpected token " ++ show t ++  " not allowed in top level of program"
+    (_, t:_) -> error $ "Unexpected token " ++ show t ++ " not allowed in top level of program"
 
 push :: Token -> State [Token] ()
 push t = do
@@ -44,15 +44,12 @@ pull context = do
 
 pullEq :: String -> Token -> State [Token] ()
 pullEq context c = do
-    ts <- get
-    case ts of
-        (t:ts) -> do
-            put ts
-            if  t ==  c then
-                return ()
-            else
-                error $ (show c) ++ " in " ++ context ++ " expected, but not found"
-        _ -> error $ "Unexpected end of token stream in " ++ context
+    t <- pull context
+    if  t ==  c then
+        return ()
+    else
+        error $ (show c) ++ " in " ++ context ++ " expected, but not found"
+
 
 peek :: String -> State [Token] Token
 peek context = do
@@ -297,3 +294,4 @@ parseFormalParameterList = do
             (is, i) <- parseFormalParameterList
             return ((IdentifierAtom str):is, i)
         _ -> error $ "Expected formal parameters in formal parameterlist not token " ++ show t
+        
