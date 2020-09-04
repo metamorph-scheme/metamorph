@@ -9,9 +9,11 @@ import Control.Monad.State.Lazy
 import Data.Data
 import Data.Complex
 
+
+
 data Token  = Lambda | If | Set | POpen | PClose | Identifier String | Quote | ShortQuote | Integral Int | Rational Int Int
             | Real Double | String String | Complex (Complex Double)  | Bool Bool | Char Char
-            | Point | QuasiQuote | ShortQuasiQuote | Unquote | ShortUnquote | UnquoteSplice 
+            | Dot | QuasiQuote | ShortQuasiQuote | Unquote | ShortUnquote | UnquoteSplice | CommentDatum
             | ShortUnquoteSplice | Label Integer | LabelRef Integer | Define deriving (Eq, Show) 
 
 data MetaNode = LambdaNode [MetaNode] MetaNode [MetaNode] | PairNode MetaNode MetaNode 
@@ -70,6 +72,10 @@ parseExpression context = do
         ShortQuasiQuote -> do
             pullEq "Quasiquoted Datum" ShortQuasiQuote
             parseQuasiQuotedDatum
+        CommentDatum -> do
+            pullEq "Commented Datum" CommentDatum
+            parseExpression "Commented Datum"
+            parseExpression context
         _ -> parseAtom
 
 parseSyntax :: State [Token] MetaNode
@@ -170,6 +176,10 @@ parseQuotedDatum = do
         POpen -> do
             pullEq "Compound Datum" POpen
             parseQuotedCompoundDatum
+        CommentDatum -> do
+            pullEq "Commented Quoted Datum" CommentDatum
+            parseQuotedDatum
+            parseQuotedDatum
         ShortQuote -> parseQuotedShortForm
         ShortUnquote -> parseQuotedShortForm
         ShortQuasiQuote -> parseQuotedShortForm
@@ -182,8 +192,8 @@ parseQuotedCompoundDatum = do
         PClose -> do
             pullEq "Compound Datum" PClose
             return EmptyAtom
-        Point -> do
-            pullEq "Compound Datum" Point
+        Dot -> do
+            pullEq "Compound Datum" Dot
             end <- parseQuotedDatum
             pullEq "Compound Datum" PClose
             return end
@@ -211,6 +221,10 @@ parseQuasiQuotedDatum = do
         ShortUnquote -> do
             pullEq "Unquoted Expression" ShortUnquote
             parseExpression "Unquoted Expression"
+        CommentDatum -> do
+            pullEq "Commented Quasiquoted Datum" CommentDatum
+            parseQuasiQuotedDatum
+            parseQuasiQuotedDatum
         ShortQuote -> parseQuasiQuotedShortForm
         ShortQuasiQuote -> parseQuasiQuotedShortForm
         _ -> parseAtom
@@ -222,8 +236,8 @@ parseQuasiQuotedCompoundDatum = do
         PClose -> do
             pullEq "Quasiquoted Compound Datum" PClose
             return EmptyAtom
-        Point -> do
-            pullEq "Quasiquoted Compound Datum" Point
+        Dot -> do
+            pullEq "Quasiquoted Compound Datum" Dot
             end <- parseQuasiQuotedDatum
             pullEq "Quasiquoted Compound Datum" PClose
             return end
@@ -272,7 +286,7 @@ parseFormalParameterList = do
     case t of 
         PClose -> do
             return ([], IdentifierAtom "")
-        Point -> do
+        Dot -> do
             t <- pull "Formal Paramterlist"
             case t of 
                 Identifier str -> do

@@ -4,7 +4,7 @@ import Control.Monad.State.Lazy
 import Test.Hspec
 
 p1 = [POpen, Identifier "+", Integral 2, Integral 5, PClose]
-p2 = [POpen, POpen, Lambda,  POpen, Identifier "x", Identifier "y", Point, Identifier "z",PClose,
+p2 = [POpen, POpen, Lambda,  POpen, Identifier "x", Identifier "y", Dot, Identifier "z",PClose,
     POpen, Identifier "/", Identifier "x", Identifier "y", PClose, PClose, Integral 3, Integral 9, Integral 4, String "sdf", PClose]
 p3 = [POpen, Quote, POpen, Identifier "*", Integral 2, Identifier "a",PClose, PClose]
 p4 = [ShortQuote, POpen, Identifier "*", Integral 2, POpen, Integral 3, Integral 5, PClose ,Identifier "a",PClose]
@@ -15,10 +15,12 @@ p6 = [POpen, If, Identifier "p", POpen, Identifier "*",
 p7 = [POpen,Set, Identifier "x", POpen, Lambda, Identifier "arglist", POpen, Identifier "length"
     , Identifier "arglist", PClose,PClose, PClose]
 p8 = [ShortQuasiQuote, POpen, Identifier "x", ShortUnquote, POpen, Identifier "*",
-    Real 3, Real 4, PClose, POpen, Identifier "c", Point, POpen, Integral 3, Integral 4,
+    Real 3, Real 4, PClose, POpen, Identifier "c", Dot, POpen, Integral 3, Integral 4,
      ShortUnquote,POpen, Identifier "+", Real 3, Real 9, PClose ,PClose, PClose,PClose]
 p9 = [POpen, Lambda, Identifier "X", POpen, Identifier "*", Real 2, Real 3,
     PClose, POpen, Set, Identifier "X", Real 9, PClose, Identifier "X", PClose]
+p10 = [POpen, Lambda, Identifier "X", ShortQuote, POpen, Real 3, Real 4, CommentDatum,
+            POpen, Integral 3, Integral 8, PClose, Real 7, PClose, PClose]
 
 n1 = ApplicationNode (IdentifierAtom "+") [IntegralAtom 2,IntegralAtom 5]
 n2 = ApplicationNode (LambdaNode [IdentifierAtom "x",IdentifierAtom "y"] 
@@ -40,6 +42,9 @@ n8 = PairNode (IdentifierAtom "x") (PairNode (ApplicationNode (IdentifierAtom "*
     EmptyAtom))
 n9 = LambdaNode [] (IdentifierAtom "X") [ApplicationNode (IdentifierAtom "*") 
     [RealAtom 2.0,RealAtom 3.0],SetNode (IdentifierAtom "X") (RealAtom 9.0),IdentifierAtom "X"]
+n10 =LambdaNode [] (IdentifierAtom "X") [PairNode (RealAtom 3.0) 
+    (PairNode (RealAtom 4.0) (PairNode (RealAtom 7.0) EmptyAtom))]
+
 
 spec :: Spec
 spec =
@@ -62,5 +67,7 @@ spec =
             parseScheme p8 `shouldBe` n8
         it "Parses p9 correct" $ do
             parseScheme p9 `shouldBe` n9
+        it "Parses p10 correct" $ do
+            parseScheme p10 `shouldBe` n10
 
 
