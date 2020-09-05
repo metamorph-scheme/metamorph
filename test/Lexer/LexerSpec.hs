@@ -86,6 +86,22 @@ spec = describe "Lexer.scan" $ do
         , PClose
         ]
 
-  describe "integer" $ do
-    it "can classify integer" $ do
+  describe "uinteger" $ do
+    it "can classify uinteger" $ do
           scan "324" `shouldBe` [ Integral 324 ]
+
+  describe "decimal" $ do
+    it "can classify decimal" $ do
+          scan "3.56" `shouldBe` [ Real 3.56 ]
+  
+  describe "ureal" $ do
+    it "can classify ureal" $ do
+          scan "4/2" `shouldBe` [ String "ureal4/2" ]
+  
+  describe "real" $ do
+    it "can classify real" $ do
+          scan "+inf.0" `shouldBe` [ String "real+inf.0" ]
+
+  describe "complex" $ do
+    it "can classify complex" $ do
+          scan "34+2i" `shouldBe` [ String "complex34+2i" ]    

@@ -90,6 +90,24 @@ $digit16 = [$digit10 a-f]
 
 @uinteger10 = @prefix10 @sign $digit10+
 
+@decimal10 = @prefix10 @sign (@uinteger10 @suffix | $dot $digit10+ @suffix | $digit10+ $dot $digit10* @suffix)
+
+@ureal10 = @prefix10 @sign (@uinteger10 | @uinteger10 \/ @uinteger10 | @decimal10)
+
+@real10 = @prefix10 (@sign @ureal10 | @infnan)
+
+@complex10 = @prefix10 ( @real10
+             | @real10 @ @real10 
+             | @real10 \+ @real10 i
+             | @real10 \- @real10 i
+             | @real10 \+ i
+             | @real10 \- i
+             | @real10 @infnan i
+             | \+ @ureal10 i
+             | \- @ureal10 i
+             | @infnan i
+             | \+ i
+             | \- i)
 
 
 tokens :-
@@ -105,7 +123,11 @@ tokens :-
   @set                      { simpleToken Set }
   @if                       { simpleToken If }
 
-  @uinteger10               { stringToken (\s -> Integral (read s :: Int))}
+  @uinteger10               { stringToken (\s -> Integral (read s :: Int)) }
+  @decimal10                { stringToken (\s -> Real (read s :: Double)) }
+  @ureal10                  { stringToken (\s -> String ("ureal" ++ s)) }
+  @real10                   { stringToken (\s -> String ("real" ++ s)) }
+  @complex10                { stringToken (\s -> String ("complex" ++ s)) }
 
   $dot                      { simpleToken Dot }
   @datumComment             { simpleToken CommentDatum }
@@ -122,6 +144,9 @@ tokens :-
 
 {
 -- Each action has type :: String -> Token
+
+-- validateDelimiterToken :: (AlexInput -> Int -> a) -> AlexAction a
+-- validateDelimiterToken f = token f `andPushStack` delimiter
 
 simpleToken :: a -> AlexAction a
 simpleToken t = token (\_ _ -> t)
