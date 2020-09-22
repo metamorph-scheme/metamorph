@@ -3,6 +3,7 @@ module Lexer.Lexer (scan) where
 
 import Lexer.Token
 import qualified Data.Stack as Stack
+import Lexer.TypeConversion
 }
 
 %wrapper "monadUserState"
@@ -12,7 +13,6 @@ import qualified Data.Stack as Stack
 $digit = [0-9]
 $letter = [a-zA-Z]
 $specialInitial = [!\$\%&\*\/:\<\=\>\?\^\~]
-$mnemonicEscape = [\\a\\b\\t\\n\\r]
 $dot = \.
 $hexDigit = [0-9a-f]
 $verticalLine = \|
@@ -24,6 +24,7 @@ $explicitSign = [\+\-]
 -- general
 
 @lineEnding = (\n | \r\n | \r)
+@mnemonicEscape = (\\a|\\b|\\t|\\n|\\r)
 @whitespace = ($intralineWhitespace | @lineEnding)
 @directive = (\#!fold-case | \#!no-fold-case)
 @characterName = (alarm|backspace|delete|escape|newline|null|return|space|tab)
@@ -47,7 +48,7 @@ $explicitSign = [\+\-]
 @subsequent = (@initial | $digit | @specialSubsequent)
 @hexScalarValue = $hexDigit+
 @inlineHexExcape = \\x(@hexScalarValue)\;
-@symbolElement = ([^$verticalLine\\] | @inlineHexExcape | $mnemonicEscape | \\\|)
+@symbolElement = ([^$verticalLine\\] | @inlineHexExcape | @mnemonicEscape | \\\|)
 @signSubsequent = (@initial | $explicitSign | @)
 @dotSubsequent = (@signSubsequent | $dot)
 @peculiarIdentifier = ($explicitSign
@@ -55,14 +56,33 @@ $explicitSign = [\+\-]
                       | $explicitSign $dot @dotSubsequent @subsequent*
                       | $dot @dotSubsequent @subsequent*)
 @identifier = (@initial @subsequent*
-              | $verticalLine @symbolElement+ $verticalLine
               | @peculiarIdentifier)
+@verticalLineIdentifier = $verticalLine @symbolElement+ $verticalLine
 
 -- primitive expressions
 
 @lambda = lambda
 @set = set!
 @if = if
+
+@define = define
+
+-- simple literals
+
+@boolean = (\#t | \#f | \#true | \#false)
+@character = ( \#\\ .
+             | \#\\ @characterName
+             | \#\\x @hexScalarValue)
+@stringElement = ( [^\"\\]
+                 | @mnemonicEscape
+                 | \\\"
+                 | \\\\
+                 | \\ $intralineWhitespace* @lineEnding $intralineWhitespace*
+                 | @inlineHexExcape)
+@string = \" @stringElement* \"
+
+@byte = ([0-9]{1,3})
+@bytevector = \#u8\( @byte* \)
 
 -- number
 
@@ -88,15 +108,48 @@ $digit16 = [$digit10 a-f]
 @prefix10 = (@radix10 @exactness | @exactness @radix10)
 @prefix16 = (@radix16 @exactness | @exactness @radix16)
 
-@uinteger10 = @prefix10 @sign $digit10+
+@uinteger2 = $digit2+
+@uinteger8 = $digit8+
+@uinteger10 = $digit10+
+@uinteger16 = $digit16+
 
-@decimal10 = @prefix10 @sign (@uinteger10 @suffix | $dot $digit10+ @suffix | $digit10+ $dot $digit10* @suffix)
+@decimal10 = (@uinteger10 @suffix | $dot $digit10+ @suffix | $digit10+ $dot $digit10* @suffix)
 
-@ureal10 = @prefix10 @sign (@uinteger10 | @uinteger10 \/ @uinteger10 | @decimal10)
+@ureal2 = (@uinteger2 | @uinteger2 \/ @uinteger2)
+@ureal8 = (@uinteger8 | @uinteger8 \/ @uinteger8)
+@ureal10 = (@uinteger10 | @uinteger10 \/ @uinteger10 | @decimal10)
+@ureal16 = (@uinteger16 | @uinteger16 \/ @uinteger16)
 
-@real10 = @prefix10 (@sign @ureal10 | @infnan)
+@real2 = (@sign @ureal2 | @infnan)
+@real8 = (@sign @ureal8 | @infnan)
+@real10 = (@sign @ureal10 | @infnan)
+@real16 = (@sign @ureal16 | @infnan)
 
-@complex10 = @prefix10 ( @real10
+@complex2 = ( @real2
+             | @real2 @ @real2 
+             | @real2 \+ @real2 i
+             | @real2 \- @real2 i
+             | @real2 \+ i
+             | @real2 \- i
+             | @real2 @infnan i
+             | \+ @ureal2 i
+             | \- @ureal2 i
+             | @infnan i
+             | \+ i
+             | \- i)
+@complex8 = ( @real8
+             | @real8 @ @real8 
+             | @real8 \+ @real8 i
+             | @real8 \- @real8 i
+             | @real8 \+ i
+             | @real8 \- i
+             | @real8 @infnan i
+             | \+ @ureal8 i
+             | \- @ureal8 i
+             | @infnan i
+             | \+ i
+             | \- i)
+@complex10 = ( @real10
              | @real10 @ @real10 
              | @real10 \+ @real10 i
              | @real10 \- @real10 i
@@ -108,7 +161,25 @@ $digit16 = [$digit10 a-f]
              | @infnan i
              | \+ i
              | \- i)
+@complex16 = ( @real16
+             | @real16 @ @real16 
+             | @real16 \+ @real16 i
+             | @real16 \- @real16 i
+             | @real16 \+ i
+             | @real16 \- i
+             | @real16 @infnan i
+             | \+ @ureal16 i
+             | \- @ureal16 i
+             | @infnan i
+             | \+ i
+             | \- i)
 
+@num2 = @prefix2 @complex2
+@num8 = @prefix8 @complex8
+@num10 = @prefix10 @complex10
+@num16 = @prefix16 @complex16
+
+@number = ( @num2 | @num8 | @num10 | @num16 )
 
 tokens :-
 
@@ -119,20 +190,22 @@ tokens :-
 
   $openingBracket           { simpleToken POpen }  
   $closingBracket           { simpleToken PClose }
-  @lambda                   { simpleToken Lambda }
-  @set                      { simpleToken Set }
-  @if                       { simpleToken If }
+  @lambda / @delimiter      { simpleToken Lambda }
+  @set / @delimiter         { simpleToken Set }
+  @if / @delimiter          { simpleToken If }
+  @define / @delimiter      { simpleToken Define }
 
-  @uinteger10               { stringToken (\s -> Integral (read s :: Int)) }
-  @decimal10                { stringToken (\s -> Real (read s :: Double)) }
-  @ureal10                  { stringToken (\s -> String ("ureal" ++ s)) }
-  @real10                   { stringToken (\s -> String ("real" ++ s)) }
-  @complex10                { stringToken (\s -> String ("complex" ++ s)) }
+  @number / @delimiter      { stringToken (\s -> parseNumber (s ++ "\0")) }
 
-  $dot                      { simpleToken Dot }
+  @boolean / @delimiter     { stringToken (\s -> parseBoolean s ) }
+  @string                   { stringToken (\s -> parseString s) }
+  @character / @delimiter   { stringToken (\s -> parseCharacter s)}
+
+  $dot / @delimiter         { simpleToken Dot }
   @datumComment             { simpleToken CommentDatum }
   
-  @identifier               { stringToken (\s -> Identifier s) }
+  @identifier / @delimiter  { stringToken (\s -> Identifier s) }
+  @verticalLineIdentifier   { stringToken (\s -> parseEscapedIdentifier s)}
 }
 
 <nestedComment> {
