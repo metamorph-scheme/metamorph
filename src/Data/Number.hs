@@ -3,7 +3,7 @@ module Data.Number (
   , exactNumber
   , defaultNumber
   , NumVal (..)
-  , Number
+  , Number (..)
   , InfReal (..)
 ) where
 

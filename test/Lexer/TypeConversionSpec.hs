@@ -103,7 +103,7 @@ spec = do
       parseNumber "#i3.131\0" `shouldBe` (Number . inexactNumber . Real $ InfReal 3.131)
 
     it "can parse inexact decimal point suffix" $ do
-      parseNumber "#i3.131e2\0" `shouldBe` (Number . inexactNumber . Real $ InfReal 313.1)
+      parseNumber "#i3.131e2\0" `shouldSatisfy` (\(Number (Inexact (Real (InfReal n)))) -> abs(n - 313.1) < 0.000001)
 
     it "can parse rational" $ do
       parseNumber "1/2\0" `shouldBe` (Number . inexactNumber . Real $ InfReal 0.5)
