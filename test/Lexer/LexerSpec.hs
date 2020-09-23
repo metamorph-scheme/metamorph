@@ -71,6 +71,9 @@ spec = describe "Lexer.scan" $ do
 
   it "can classify define" $ do
     scan "define " `shouldBe` [Define]
+  
+  it "can classify define with bracket" $ do
+    scan "define(" `shouldBe` [Define, POpen ]
 
   describe "datum comment" $ do
     it "can classify datum comment" $ do
@@ -125,6 +128,31 @@ spec = describe "Lexer.scan" $ do
 
     it "can classify mnemonic escape" $ do
       scan "\"\\a\"" `shouldBe` [ String "\a" ]
+
+  describe "quotation" $ do
+    it "can classify quote" $ do
+      scan "quote " `shouldBe` [ Quote ]
+     
+    it "can classify short quote" $ do
+      scan "'(" `shouldBe` [ ShortQuote, POpen]
+     
+    it "can classify quasiquote" $ do
+      scan "quasiquote " `shouldBe` [ QuasiQuote ]
+     
+    it "can classify short quasiquote" $ do
+      scan "` ( " `shouldBe` [ ShortQuasiQuote, POpen ]
+     
+    it "can classify unquote" $ do
+      scan "unquote " `shouldBe` [ Unquote ]
+     
+    it "can classify short unquote" $ do
+      scan ",( " `shouldBe` [ ShortUnquote, POpen ]
+     
+    it "can classify unquote-splicing" $ do
+      scan "unquote-splicing " `shouldBe` [ UnquoteSplice ]
+     
+    it "can classify short unquote-splicing" $ do
+      scan ",@( " `shouldBe` [ ShortUnquoteSplice, POpen ]
 
   describe "real file" $ do
     it "can classify real scm file" $ do

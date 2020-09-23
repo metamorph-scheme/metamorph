@@ -65,6 +65,17 @@ $explicitSign = [\+\-]
 @set = set!
 @if = if
 
+-- quotation
+
+@quote = quote
+@shortQuote = '
+@quasiquote = quasiquote
+@shortQuasiquote = `
+@unquote = unquote
+@shortUnquote = \,
+@unquoteSplicing = unquote\-splicing
+@shortUnquoteSplicing = \,@
+
 @define = define
 
 -- simple literals
@@ -194,6 +205,15 @@ tokens :-
   @set / @delimiter         { simpleToken Set }
   @if / @delimiter          { simpleToken If }
   @define / @delimiter      { simpleToken Define }
+
+  @quote / @delimiter                   { simpleToken Quote }
+  @shortQuote                           { simpleToken ShortQuote }
+  @quasiquote / @delimiter              { simpleToken QuasiQuote }
+  @shortQuasiquote                      { simpleToken ShortQuasiQuote }
+  @unquote / @delimiter                 { simpleToken Unquote }
+  @shortUnquote                         { simpleToken ShortUnquote }
+  @unquoteSplicing / @delimiter         { simpleToken UnquoteSplice }
+  @shortUnquoteSplicing                 { simpleToken ShortUnquoteSplice }
 
   @number / @delimiter      { stringToken (\s -> parseNumber (s ++ "\0")) }
 
