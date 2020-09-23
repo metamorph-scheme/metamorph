@@ -7,9 +7,9 @@ module Data.Number (
   , InfReal (..)
 ) where
 
-data Number = Exact NumVal | Inexact NumVal deriving (Eq, Show)
-data NumVal = Integer Integer | Real InfReal deriving (Eq, Show)
-data InfReal  = InfReal Double | PositiveInfinity | NegativeInfinity | PositiveNaN | NegativeNaN deriving (Eq, Show)
+data Number = Exact NumVal | Inexact NumVal deriving (Eq, Show, Read)
+data NumVal = Integer Integer | Real InfReal deriving (Eq, Show, Read)
+data InfReal  = InfReal Double | PositiveInfinity | NegativeInfinity | PositiveNaN | NegativeNaN deriving (Eq, Show, Read)
 
 inexactNumber :: NumVal -> Number
 inexactNumber n@(Integer _) = Inexact n

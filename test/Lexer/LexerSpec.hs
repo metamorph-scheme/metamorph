@@ -159,3 +159,10 @@ spec = describe "Lexer.scan" $ do
       withFile "testdata/lexer1.scm" ReadMode (\handle -> do
         content <- hGetContents handle
         scan content `shouldBe` lexer1Result )
+
+    it "can classify real scm file" $ do
+      withFile "testdata/sicp-representing-tables.scm" ReadMode (\handle -> do
+        content <- hGetContents handle
+        withFile "testdata/sicp-representing-tables.txt" ReadMode (\handle -> do
+          solution <- fmap read $ hGetContents handle
+          scan content `shouldBe` solution ))
