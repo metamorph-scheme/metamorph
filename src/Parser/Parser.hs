@@ -1,27 +1,14 @@
-module Parser (
-    parseScheme,
-    Token(..),
-    MetaNode(..)
+module Parser.Parser (
+    parseScheme
 ) 
 where
 
+import Parser.MetaNode
 import Control.Monad.State.Lazy
 import Data.Data
+import Common.Number
 import Data.Complex
-
-
-
-data Token  = Lambda | If | Set | POpen | PClose | Identifier String | Quote | ShortQuote | Integral Int | Rational Int Int
-            | Real Double | String String | Complex (Complex Double)  | Bool Bool | Char Char
-            | Dot | QuasiQuote | ShortQuasiQuote | Unquote | ShortUnquote | UnquoteSplice | CommentDatum
-            | ShortUnquoteSplice | Label Integer | LabelRef Integer | Define deriving (Eq, Show) 
-
-data MetaNode = LambdaNode [MetaNode] MetaNode [MetaNode] | PairNode MetaNode MetaNode 
-            | RealAtom Double | IntegralAtom Int | RationalAtom Int Int | EmptyAtom
-            | StringAtom String | ComplexAtom (Complex Double) | BoolAtom Bool | CharAtom Char 
-            | IdentifierAtom String | ApplicationNode MetaNode [MetaNode] 
-            | IfNode MetaNode MetaNode MetaNode | SetNode MetaNode MetaNode | DefineNode MetaNode MetaNode 
-            deriving (Eq, Show)
+import Lexer.Token
 
 parseScheme :: [Token] -> MetaNode
 parseScheme st = case runState (parseExpression "Scheme Program") st of
@@ -95,10 +82,7 @@ parseAtom = do
         Bool b -> return $ BoolAtom b
         String s -> return $ StringAtom s
         Char c -> return $ CharAtom c
-        Real n -> return $ RealAtom n
-        Integral n -> return $ IntegralAtom n
-        Rational n m -> return $ RationalAtom n m
-        Complex c -> return $ ComplexAtom c
+        Number n -> return $ NumberAtom n
         Identifier i -> return $ IdentifierAtom i
         Quote -> return $ IdentifierAtom "quote"
         Unquote -> return $ IdentifierAtom "unquote"
