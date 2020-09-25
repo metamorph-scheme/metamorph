@@ -1,7 +1,5 @@
-module Data.Number (
-  inexactNumber
-  , exactNumber
-  , defaultNumber
+module Common.Number (
+  defaultNumber
   , NumVal (..)
   , Number (..)
   , InfReal (..)
@@ -10,14 +8,6 @@ module Data.Number (
 data Number = Exact NumVal | Inexact NumVal deriving (Eq, Show, Read)
 data NumVal = Integer Integer | Real InfReal deriving (Eq, Show, Read)
 data InfReal  = InfReal Double | PositiveInfinity | NegativeInfinity | PositiveNaN | NegativeNaN deriving (Eq, Show, Read)
-
-inexactNumber :: NumVal -> Number
-inexactNumber n@(Integer _) = Inexact n
-inexactNumber n@(Real _) = Inexact n
-
-exactNumber :: NumVal -> Number
-exactNumber n@(Integer _) = Exact n
-exactNumber (Real _) = error "cannot make exact real"
 
 defaultNumber :: NumVal -> Number
 defaultNumber n@(Integer _) = Exact n

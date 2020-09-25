@@ -1,6 +1,6 @@
-module Data.StackSpec where
+module Common.StackSpec where
 
-import qualified Data.Stack as Stack
+import qualified Common.Stack as Stack
 
 import Test.Hspec
 

@@ -6,7 +6,6 @@ import Text.Parsec.Combinator (many1, choice, chainl1, optionMaybe)
 import Control.Applicative ((<$>), (<*>), (<*), (*>), (<|>), many, (<$))
 import Data.Maybe (catMaybes)
 
-import Data.Number as N
 import Lexer.Token
 import Lexer.Util
 

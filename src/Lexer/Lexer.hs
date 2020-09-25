@@ -5,7 +5,7 @@
 module Lexer.Lexer (scan) where
 
 import Lexer.Token
-import qualified Data.Stack as Stack
+import qualified Common.Stack as Stack
 import Lexer.TypeConversion
 
 #if __GLASGOW_HASKELL__ >= 603

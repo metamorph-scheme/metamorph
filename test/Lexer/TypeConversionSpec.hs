@@ -3,7 +3,7 @@ module Lexer.TypeConversionSpec where
 import Lexer.TypeConversion
 import Lexer.Token
 import Data.Complex
-import Data.Number
+import Common.Number
 
 import Text.Parsec (parse, Parsec, try, ParseError)
 
@@ -73,43 +73,43 @@ spec = do
 
   describe "parseNumber" $ do
     it "can parse integer" $ do
-      parseNumber "32\0" `shouldBe` (Number . exactNumber $ Integer 32)
+      parseNumber "32\0" `shouldBe` (Number . Exact $ Integer 32)
 
     it "can parse negative integer" $ do
-      parseNumber "-32\0" `shouldBe` (Number . exactNumber $ Integer (-32))
+      parseNumber "-32\0" `shouldBe` (Number . Exact $ Integer (-32))
 
     it "can parse inexact integer" $ do
-      parseNumber "#i3\0" `shouldBe` (Number . inexactNumber $ Integer 3)
+      parseNumber "#i3\0" `shouldBe` (Number . Inexact $ Integer 3)
 
     it "can parse exact integer" $ do
-      parseNumber "#e3\0" `shouldBe` (Number . exactNumber $ Integer 3)
+      parseNumber "#e3\0" `shouldBe` (Number . Exact $ Integer 3)
 
     it "can parse inexact decimal real" $ do
-      parseNumber "#i3.141\0" `shouldBe` (Number . inexactNumber . Real $ InfReal 3.141)
+      parseNumber "#i3.141\0" `shouldBe` (Number . Inexact . Real $ InfReal 3.141)
 
     it "can parse decimal" $ do
-      parseNumber "141e2\0" `shouldBe` (Number . inexactNumber . Real $ InfReal 14100)
+      parseNumber "141e2\0" `shouldBe` (Number . Inexact . Real $ InfReal 14100)
 
     it "can parse decimal point only" $ do
-      parseNumber ".131\0" `shouldBe` (Number . inexactNumber . Real $ InfReal 0.131)
+      parseNumber ".131\0" `shouldBe` (Number . Inexact . Real $ InfReal 0.131)
 
     it "can parse decimal point only suffix" $ do
-      parseNumber ".131e1\0" `shouldBe` (Number . inexactNumber . Real $ InfReal 1.31)
+      parseNumber ".131e1\0" `shouldBe` (Number . Inexact . Real $ InfReal 1.31)
 
     it "can parse decimal point" $ do
-      parseNumber "3.131\0" `shouldBe` (Number . inexactNumber . Real $ InfReal 3.131)
+      parseNumber "3.131\0" `shouldBe` (Number . Inexact . Real $ InfReal 3.131)
 
     it "can parse inexact decimal point" $ do
-      parseNumber "#i3.131\0" `shouldBe` (Number . inexactNumber . Real $ InfReal 3.131)
+      parseNumber "#i3.131\0" `shouldBe` (Number . Inexact . Real $ InfReal 3.131)
 
     it "can parse inexact decimal point suffix" $ do
       parseNumber "#i3.131e2\0" `shouldSatisfy` (\(Number (Inexact (Real (InfReal n)))) -> abs(n - 313.1) < 0.000001)
 
     it "can parse rational" $ do
-      parseNumber "1/2\0" `shouldBe` (Number . inexactNumber . Real $ InfReal 0.5)
+      parseNumber "1/2\0" `shouldBe` (Number . Inexact . Real $ InfReal 0.5)
 
     it "can parse inexact rational" $ do
-      parseNumber "#i1/2\0" `shouldBe` (Number . inexactNumber . Real $ InfReal 0.5)
+      parseNumber "#i1/2\0" `shouldBe` (Number . Inexact . Real $ InfReal 0.5)
 
   describe "parseString" $ do
 

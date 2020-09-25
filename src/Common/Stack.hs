@@ -1,4 +1,4 @@
-module Data.Stack (
+module Common.Stack (
   Stack
   , empty
   , singleton

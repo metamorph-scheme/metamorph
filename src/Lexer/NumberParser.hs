@@ -1,6 +1,7 @@
 module Lexer.NumberParser (parseNumberE) where
 
-import Data.Number as N
+import Common.Number as N
+import Lexer.Util
 import Text.Parsec (parse, Parsec, try, ParseError)
 import Text.Parsec.Char (oneOf, char, digit, hexDigit, letter, satisfy, string)
 import Text.Parsec.Combinator (many1, choice, chainl1, optionMaybe)
@@ -21,8 +22,8 @@ signParser = optionalParser positive $ positive <$ char '+' <|> negative <$ char
 
 exactnessParser :: Parsec String st (N.NumVal -> N.Number)
 exactnessParser = optionalParser N.defaultNumber $ (exact <$ try (string "#e")) <|> (inexact <$ string "#i")
-  where exact = N.exactNumber
-        inexact = N.inexactNumber
+  where exact = exactNumber
+        inexact = inexactNumber
 
 integerParser :: Int -> Parsec String st N.NumVal
 integerParser base = N.Integer <$> (signParser <*> uintegerParser base)

@@ -1,7 +1,6 @@
 module Lexer.Token where
 
-import Data.Complex
-import Data.Number
+import Common.Number
 
 -- The token type:
 data Token  = Lambda | If | Set | POpen | PClose | Identifier String | Quote | ShortQuote

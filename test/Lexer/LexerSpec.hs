@@ -2,17 +2,13 @@ module Lexer.LexerSpec where
 
 import Lexer.Lexer
 import Lexer.Token
-import Data.Number
+import Common.Number
 import System.IO
 
 import Control.Exception (evaluate)
+import Lexer.LexerData
 import Test.Hspec
 
--- (define y
---  (lambda (x) (* 2 x)))
-lexer1Result = [POpen, Define, Identifier "y", POpen, Lambda, POpen, Identifier "x", PClose, POpen,
-                Identifier "*", (Number . exactNumber) (Integer 2),
-                Identifier "x", PClose, PClose, PClose]
 
 spec :: Spec
 spec = describe "Lexer.scan" $ do
@@ -105,19 +101,19 @@ spec = describe "Lexer.scan" $ do
 
   describe "uinteger" $ do
     it "can classify uinteger" $ do
-      scan "324 " `shouldBe` [ Number . exactNumber $ Integer 324 ]
+      scan "324 " `shouldBe` [ Number . Exact $ Integer 324 ]
 
   describe "decimal" $ do
     it "can classify decimal" $ do
-      scan "3.56 " `shouldBe` [ Number . inexactNumber . Real $ InfReal 3.56 ]
+      scan "3.56 " `shouldBe` [ Number . Inexact . Real $ InfReal 3.56 ]
   
   describe "ureal" $ do
     it "can classify ureal" $ do
-      scan "4/2 " `shouldBe` [ Number . inexactNumber . Real $ InfReal 2 ]
+      scan "4/2 " `shouldBe` [ Number . Inexact . Real $ InfReal 2 ]
   
   describe "real" $ do
     it "can classify real" $ do
-      scan "+inf.0 " `shouldBe` [ Number . inexactNumber . Real $ PositiveInfinity ]
+      scan "+inf.0 " `shouldBe` [ Number . Inexact . Real $ PositiveInfinity ]
 
   describe "string" $ do
     it "can classify string" $ do
@@ -163,6 +159,4 @@ spec = describe "Lexer.scan" $ do
     it "can classify real scm file" $ do
       withFile "testdata/sicp-representing-tables.scm" ReadMode (\handle -> do
         content <- hGetContents handle
-        withFile "testdata/sicp-representing-tables.txt" ReadMode (\handle -> do
-          solution <- fmap read $ hGetContents handle
-          scan content `shouldBe` solution ))
+        scan content `shouldBe` lexer2Result )
