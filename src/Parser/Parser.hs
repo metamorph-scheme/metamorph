@@ -10,6 +10,7 @@ import Common.Number
 import Data.Complex
 import Lexer.Token
 
+
 parseScheme :: [Token] -> MetaNode
 parseScheme st = case runState (parseExpression "Scheme Program") st of
     (mn, []) -> mn
@@ -141,8 +142,16 @@ parseDefine = do
             e <- parseExpression "Define Body"
             pullEq "Define" PClose
             return (DefineNode (IdentifierAtom str) e)
-        _ -> error "Expected Identifier as first argument of define"
+        POpen -> parseDefineFunction
+        _ -> error "Expected Identifier oder Parantheses as first argument of define"
 
+parseDefineFunction :: State [Token] MetaNode
+parseDefineFunction =  do
+            (ps, p) <- parseFormalParameterList
+            es <- parseExpressionList "Define Body"
+            case ps of
+                (i:ps) -> return (DefineNode i (LambdaNode ps p es))
+                _ -> error "Expected parameter list in function definition"
 
 parseApplication :: State [Token] MetaNode
 parseApplication = do

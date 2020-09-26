@@ -20,6 +20,11 @@ p9 = [POpen, Lambda, Identifier "X", POpen, Identifier "*", Bool True, Bool True
     PClose, POpen, Set, Identifier "X", Bool True, PClose, Identifier "X", PClose]
 p10 = [POpen, Lambda, Identifier "X", ShortQuote, POpen, Bool True, Bool True, CommentDatum,
             POpen, Bool True, Bool True, PClose, Bool True, PClose, PClose]
+p11 = [POpen, Define, POpen,Identifier "func", Identifier "x", Identifier "y", Dot, Identifier "z",
+        PClose, POpen, Identifier "+", POpen, Identifier "*", Identifier "x", POpen, Identifier "len", Identifier "z",
+        PClose, PClose, POpen, Identifier "*", Identifier "y", POpen, Identifier "len", Identifier "z",
+        PClose, PClose,PClose,PClose]
+
 
 n1 = ApplicationNode (IdentifierAtom "+") [BoolAtom True,BoolAtom True]
 n2 = ApplicationNode (LambdaNode [IdentifierAtom "x",IdentifierAtom "y"] 
@@ -43,3 +48,7 @@ n9 = LambdaNode [] (IdentifierAtom "X") [ApplicationNode (IdentifierAtom "*")
     [BoolAtom True,BoolAtom True],SetNode (IdentifierAtom "X") (BoolAtom True),IdentifierAtom "X"]
 n10 =LambdaNode [] (IdentifierAtom "X") [PairNode (BoolAtom True) 
     (PairNode (BoolAtom True) (PairNode (BoolAtom True) EmptyAtom))]
+n11 = DefineNode (IdentifierAtom "func") (LambdaNode [IdentifierAtom "x",IdentifierAtom "y"] 
+    (IdentifierAtom "z") [ApplicationNode (IdentifierAtom "+") [ApplicationNode (IdentifierAtom "*")
+    [IdentifierAtom "x",ApplicationNode (IdentifierAtom "len") [IdentifierAtom "z"]],ApplicationNode 
+    (IdentifierAtom "*") [IdentifierAtom "y",ApplicationNode (IdentifierAtom "len") [IdentifierAtom "z"]]]])
