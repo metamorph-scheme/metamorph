@@ -1,27 +1,15 @@
-module Parser (
-    parseScheme,
-    Token(..),
-    MetaNode(..)
+module Parser.Parser (
+    parseScheme
 ) 
 where
 
+import Parser.MetaNode
 import Control.Monad.State.Lazy
 import Data.Data
+import Common.Number
 import Data.Complex
+import Lexer.Token
 
-
-
-data Token  = Lambda | If | Set | POpen | PClose | Identifier String | Quote | ShortQuote | Integral Int | Rational Int Int
-            | Real Double | String String | Complex (Complex Double)  | Bool Bool | Char Char
-            | Dot | QuasiQuote | ShortQuasiQuote | Unquote | ShortUnquote | UnquoteSplice | CommentDatum
-            | ShortUnquoteSplice | Label Integer | LabelRef Integer | Define deriving (Eq, Show) 
-
-data MetaNode = LambdaNode [MetaNode] MetaNode [MetaNode] | PairNode MetaNode MetaNode 
-            | RealAtom Double | IntegralAtom Int | RationalAtom Int Int | EmptyAtom
-            | StringAtom String | ComplexAtom (Complex Double) | BoolAtom Bool | CharAtom Char 
-            | IdentifierAtom String | ApplicationNode MetaNode [MetaNode] 
-            | IfNode MetaNode MetaNode MetaNode | SetNode MetaNode MetaNode | DefineNode MetaNode MetaNode 
-            deriving (Eq, Show)
 
 parseScheme :: [Token] -> MetaNode
 parseScheme st = case runState (parseExpression "Scheme Program") st of
@@ -95,10 +83,7 @@ parseAtom = do
         Bool b -> return $ BoolAtom b
         String s -> return $ StringAtom s
         Char c -> return $ CharAtom c
-        Real n -> return $ RealAtom n
-        Integral n -> return $ IntegralAtom n
-        Rational n m -> return $ RationalAtom n m
-        Complex c -> return $ ComplexAtom c
+        Number n -> return $ NumberAtom n
         Identifier i -> return $ IdentifierAtom i
         Quote -> return $ IdentifierAtom "quote"
         Unquote -> return $ IdentifierAtom "unquote"
@@ -157,8 +142,16 @@ parseDefine = do
             e <- parseExpression "Define Body"
             pullEq "Define" PClose
             return (DefineNode (IdentifierAtom str) e)
-        _ -> error "Expected Identifier as first argument of define"
+        POpen -> parseDefineFunction
+        _ -> error "Expected Identifier oder Parantheses as first argument of define"
 
+parseDefineFunction :: State [Token] MetaNode
+parseDefineFunction =  do
+            (ps, p) <- parseFormalParameterList
+            es <- parseExpressionList "Define Body"
+            case ps of
+                (i:ps) -> return (DefineNode i (LambdaNode ps p es))
+                _ -> error "Expected parameter list in function definition"
 
 parseApplication :: State [Token] MetaNode
 parseApplication = do
