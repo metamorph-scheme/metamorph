@@ -11,10 +11,11 @@ import Data.Complex
 import Lexer.Token
 
 
-parseScheme :: [Token] -> MetaNode
+parseScheme :: [Token] -> [MetaNode]
 parseScheme st = case runState (parseExpression "Scheme Program") st of
-    (mn, []) -> mn
-    (_, t:_) -> error $ "Unexpected token " ++ show t ++ " not allowed in top level of program"
+    (mn, []) -> [mn]
+    (mn, up) -> mn:parseScheme up
+    --(_, t:_) -> error $ "Unexpected token " ++ show t ++ " not allowed in top level of program"
 
 push :: Token -> State [Token] ()
 push t = do
