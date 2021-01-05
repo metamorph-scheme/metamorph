@@ -26,6 +26,7 @@ p11 = [POpen, Define, POpen,Identifier "func", Identifier "x", Identifier "y", D
         PClose, PClose,PClose,PClose]
 
 
+
 n1 = [ApplicationNode (IdentifierAtom "+") [BoolAtom True,BoolAtom True]]
 n2 = [ApplicationNode (LambdaNode [IdentifierAtom "x",IdentifierAtom "y"] 
     (IdentifierAtom "z") [ApplicationNode (IdentifierAtom "/") [IdentifierAtom "x",

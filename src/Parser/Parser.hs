@@ -75,6 +75,9 @@ parseSyntax = do
         QuasiQuote -> parseQuasiQuote
         If -> parseIf
         Set -> parseSet
+        DefineSyntax -> parseDefineSyntax
+        LetSyntax -> parseLetSyntax
+        LetrecSyntax -> parseLetrecSyntax
         _ -> parseApplication
 
 parseAtom :: State [Token] MetaNode
@@ -153,6 +156,32 @@ parseDefineFunction =  do
             case ps of
                 (i:ps) -> return (DefineNode i (LambdaNode ps p es))
                 _ -> error "Expected parameter list in function definition"
+
+parseDefineSyntax :: State [Token] MetaNode
+parseDefineSyntax = do
+    pullEq "Define-Syntax" DefineSyntax
+    t <- pull "Define-Syntax"   
+    case t of
+        (Identifier str) -> do
+            e <- parseExpression "Define-Syntax Rules"
+            pullEq "Define-Syntax" PClose
+            return (DefineSyntaxNode (IdentifierAtom str) e)
+        _ -> error "Expected Identifier as first argument of define-syntax"
+
+parseLetSyntax :: State [Token] MetaNode
+parseLetSyntax = do
+    pullEq "Let-Syntax" LetSyntax
+    e <- parseExpression "Let-Syntax Rules"
+    body <- parseExpressionList "Let-Syntax Body"
+    return (LetSyntaxNode e body)
+
+parseLetrecSyntax :: State [Token] MetaNode
+parseLetrecSyntax = do
+    pullEq "Letrec-Syntax" LetrecSyntax
+    e <- parseExpression "Letrec-Syntax Rules"
+    body <- parseExpressionList "Letrec-Syntax Body"
+    return (LetrecSyntaxNode e body)
+   
 
 parseApplication :: State [Token] MetaNode
 parseApplication = do
