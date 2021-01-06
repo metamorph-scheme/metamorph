@@ -22,7 +22,7 @@ data MetaNode' = RootNode' Int MetaNode' -- Number of globals
     | CharAtom' Char
     | BaseFunctionAtom' String
     | BaseSyntaxAtom' String
-    | SyntaxAtom' (MetaNode->MetaNode) 
+    | SyntaxAtom' (MetaNode->MetaNode) Int
     | BoundAtom' Int Int -- Not literal
     | GlobalAtom' Int -- Not literal
     -- Distinction between application of function or continuation needs to be handled at runtime! handled by C Lib
@@ -33,6 +33,7 @@ data MetaNode' = RootNode' Int MetaNode' -- Number of globals
   
 data SymbolTable = Activation [(String, Int)] SymbolTable
     | Syntax [(String, MetaNode -> MetaNode)]  SymbolTable
+    | IgnoreNext Int SymbolTable
     | Global [(String, Int)]
 
 instance Show SymbolTable where
@@ -53,7 +54,7 @@ instance Show MetaNode' where
     show (CharAtom' c) = show c
     show (BaseFunctionAtom' str) = "BaseFunction: " ++ show str 
     show (BaseSyntaxAtom' str) = "BaseSyntax: " ++ show str
-    show (SyntaxAtom' _) = "Syntax" 
+    show (SyntaxAtom' _ _) = "Syntax" 
     show (BoundAtom' n m) = "Bound" ++ show (n,m)
     show (GlobalAtom' n) = "Global(" ++ show n ++ ")"
     show (ApplicationNode' False mn' mns') = "Application(" ++ show mn' ++ "): \n"++ show mns'

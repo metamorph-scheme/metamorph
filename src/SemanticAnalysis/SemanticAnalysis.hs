@@ -32,14 +32,19 @@ pushSyntaxEntries newentries = do
     oldentries <- get
     put (Syntax newentries oldentries)
 
+pushIgnoreEntries :: Int -> State AnalysisState ()
+pushIgnoreEntries n = do
+    entries <- get
+    put (IgnoreNext n entries)
+
 popEntries :: State AnalysisState ()
 popEntries = do
     entries <- get
     case entries of
         Activation _ table -> put table
         Syntax _ table -> put table
+        IgnoreNext _ table -> put table
         Global _ -> error "Internal Compiler Error: popEntries on global symbols"
-
 
 initSymbolTable :: [MetaNode] -> State AnalysisState [MetaNode]
 initSymbolTable ((DefineNode (IdentifierAtom str) trg):ms) = do
@@ -75,8 +80,10 @@ annotateBody (definesyntax@(DefineSyntaxNode _ _):es) tail = do
     es' <- annotateBody es tail
     popEntries
     return es'
--- Internal define
-annotateBody (define@(DefineNode _ _):es) tail = error "Internal Define not yet handled"
+-- not 100% correct behaviour
+annotateBody ((DefineNode identifier src):es) tail = do
+    body' <- annotateExpression (ApplicationNode (LambdaNode [identifier] (IdentifierAtom "") es) [src]) tail
+    return [body']
 annotateBody [e] tail = do 
     e' <- annotateExpression e tail
     return [e']
@@ -125,12 +132,22 @@ annotateLambda (LambdaNode (params) variadic exprs) = do
     else
         return $ LambdaNode' (length params) True (BodyNode' exprs')
 
+-- Makro params need to be annotated
 annotateApplication :: MetaNode -> Bool -> State AnalysisState MetaNode'
 annotateApplication (ApplicationNode mn params) tail = do
     mn' <- annotateExpression mn False
     case mn' of
-        (BaseSyntaxAtom' str) -> annotateExpression ((makroengineBase str) (ApplicationNode mn params)) tail
-        (SyntaxAtom' f) -> annotateExpression (f (ApplicationNode mn params)) tail
+        (BaseSyntaxAtom' str) -> do
+            symtable <- get
+            put (Global [])
+            mn' <- annotateExpression ((makroengineBase str) (ApplicationNode mn params)) tail
+            put symtable
+            return mn'
+        (SyntaxAtom' f level) -> do
+            pushIgnoreEntries level
+            mn' <- annotateExpression (f (ApplicationNode mn params)) tail
+            popEntries
+            return mn'
         _ -> do
             params' <- annotateBody params False
             return $ ApplicationNode' tail mn' params'
@@ -139,28 +156,46 @@ annotateIdentifier :: MetaNode -> State AnalysisState MetaNode'
 annotateIdentifier (IdentifierAtom str)
     | elem str schemeMakros = return $ BaseSyntaxAtom' str
     | elem str schemeFunctions =  return $ BaseFunctionAtom' str
-    | otherwise = resolveIdentifier str 0
+    | otherwise = resolveIdentifier str 0 0 0
 
-resolveIdentifier :: String -> Int -> State AnalysisState MetaNode'
-resolveIdentifier str n = do
+resolveIdentifier :: String -> Int -> Int -> Int -> State AnalysisState MetaNode'
+resolveIdentifier str parent level 0 = do
     entry <- get
     id <- case entry of
             Activation ls tb -> do
                 case lookup str ls of
                     Nothing -> do 
                         put tb
-                        resolveIdentifier str (n+1)
-                    (Just p) -> return $ BoundAtom' n p
+                        resolveIdentifier str (parent+1) (level+1) 0
+                    (Just p) -> return $ BoundAtom' parent p
             Syntax ls tb -> do
                 case lookup str ls of
                     Nothing -> do 
                         put tb
-                        resolveIdentifier str n
-                    (Just f) -> return $ SyntaxAtom' f
+                        resolveIdentifier str parent (level+1) 0
+                    (Just f) -> return $ SyntaxAtom' f level
+            IgnoreNext n tb -> do
+                put tb
+                resolveIdentifier str parent level n
             Global ls -> do
                 case lookup str ls of
                     Nothing -> error $ "Unbound Symbol: Identifier " ++ str ++ " is not in scope"
                     (Just p) -> return $ GlobalAtom' p
+    put entry
+    return id
+resolveIdentifier str parent level ignore = do
+    entry <- get
+    id <- case entry of
+            Activation _ tb -> do
+                put tb
+                resolveIdentifier str (parent+1) (level+1) (ignore-1)
+            Syntax _ tb -> do 
+                put tb
+                resolveIdentifier str parent (level+1) (ignore-1)
+            IgnoreNext _ tb -> do
+                put tb
+                resolveIdentifier str parent level (ignore-1)
+            Global ls -> error "Internal Compiler Error: To high ignore value"
     put entry
     return id
 
