@@ -139,10 +139,21 @@ spec = describe "MacroEngine" $ do
         let
           patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "...") (PairNode (IdentifierAtom "...") EmptyAtom))
           params = PairNode (IdentifierAtom "la") EmptyAtom
-        evaluate (matchList [] ellipsis params patterns) `shouldThrow` anyErrorCalls
+        evaluate (matchList [] ellipsis params patterns) `shouldThrow` anyErrorCall
       -- can't be tested because error call is inside nubBy function
       -- it "fails when a pattern variable is duplicated" $ do
       --   let
       --     patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "b") EmptyAtom))
       --     params = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "b") EmptyAtom))
       --   evaluate (matchList [] ellipsis params patterns) `shouldThrow` anyErrorCall
+  describe "MacroEngine.matchApplication" $ do
+    it "ignores first part of pattern" $ do
+      let
+        patterns = PairNode (IdentifierAtom "id") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "c") EmptyAtom))
+        params = ApplicationNode (IdentifierAtom "lala") [IdentifierAtom "pb", IdentifierAtom "pc"]
+      matchApplication [] ellipsis params patterns `shouldBe` Just [Value (IdentifierAtom "b") (IdentifierAtom "pb"), Value (IdentifierAtom "c") (IdentifierAtom "pc")]
+    it "fails when params are no application node" $ do
+      let
+        patterns = PairNode (IdentifierAtom "id") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "c") EmptyAtom))
+        params = PairNode (IdentifierAtom "lala") (PairNode (IdentifierAtom "pb") (PairNode (IdentifierAtom "pc") EmptyAtom))
+      evaluate (matchApplication [] ellipsis params patterns) `shouldThrow` anyErrorCall

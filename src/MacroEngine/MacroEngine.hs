@@ -8,75 +8,77 @@ type PatternNode = MetaNode
 type Literal = String
 type Ellipsis = String
 
-type BindingTree = Maybe PatternRoot
-type PatternRoot = [Pattern]
+type BindingTree = [Binding]
 -- tree like structure for bindings
-data Pattern = Ellipsis MetaNode [Pattern] | Value MetaNode MetaNode | EllipsisValue MetaNode | EllipsisSubPattern PatternRoot | Empty deriving (Show, Eq)
+data Binding = Ellipsis MetaNode [Binding] | Value MetaNode MetaNode | EllipsisValue MetaNode | EllipsisSubPattern BindingTree | Empty deriving (Show, Eq)
 
 resolve :: MetaNode -> MetaNode -> MetaNode
 resolve = error "not implemented"
 
+
+
 -- verify if macro call matches a pattern
-matchApplication :: [Literal] -> Ellipsis -> MetaNode -> PatternNode -> BindingTree
+matchApplication :: [Literal] -> Ellipsis -> MetaNode -> PatternNode -> Maybe BindingTree
 -- pattern has to be in scheme form for matchList to operate recursively
 -- it can be an application node or a pair node (top-level pattern has to be of list form)
 matchApplication literal ellipsis params@(ApplicationNode _ _) pattern
-  | (ApplicationNode x xs) <- pattern = matchList literal ellipsis params (ApplicationNode (IdentifierAtom "_") xs)
-  | (PairNode car cdr) <- pattern = matchList literal ellipsis params (PairNode (IdentifierAtom "_") cdr)
+  | (ApplicationNode (IdentifierAtom _) xs) <- pattern = matchList literal ellipsis params (ApplicationNode (IdentifierAtom "_") xs)
+  | (PairNode (IdentifierAtom _) cdr) <- pattern = matchList literal ellipsis params (PairNode (IdentifierAtom "_") cdr)
   | otherwise = error "top level pattern is not in list form"
 matchApplication _ _ _ _ = error "invalid macro application passed to macro engine"
 
-zipAndCombineBindings :: (MetaNode -> PatternNode -> BindingTree) -> [MetaNode] -> [PatternNode] -> BindingTree
--- zipWith yields [BindingTree] = [Maybe [Pattern]]
+zipAndCombineBindings :: (MetaNode -> PatternNode -> Maybe BindingTree) -> [MetaNode] -> [PatternNode] -> Maybe BindingTree
+-- zipWith yields [Maybe BindingTree] = [Maybe [Binding]]
 zipAndCombineBindings f el pl = combineBindings . zipWith f el $ pl
 
-zipAndCombineEllipsisBindings :: (MetaNode -> PatternNode -> BindingTree) -> [MetaNode] -> [PatternNode] -> BindingTree
-zipAndCombineEllipsisBindings f el pl = combineBindings . map (fmap patternListToEllipsisSubNode) . zipWith f el $ pl
+zipAndCombineEllipsisBindings :: (MetaNode -> PatternNode -> Maybe BindingTree) -> [MetaNode] -> [PatternNode] -> Maybe BindingTree
+zipAndCombineEllipsisBindings f el pl = combineBindings . map (fmap bindingListToEllipsisSubNode) . zipWith f el $ pl
 
 
-patternListToEllipsisSubNode patternList
-  | length filteredPatternList <= 1 = map valueToEllipsisValue filteredPatternList
-  | otherwise = [EllipsisSubPattern filteredPatternList]
-  where filteredPatternList = filter isNotEmpty patternList
+bindingListToEllipsisSubNode bindingList
+  | length filteredBindingList <= 1 = map valueToEllipsisValue filteredBindingList
+  | otherwise = [EllipsisSubPattern filteredBindingList]
+  where filteredBindingList = filter isNotEmpty bindingList
 
 valueToEllipsisValue (Value _ v) = (EllipsisValue v)
 valueToEllipsisValue pattern = pattern
 
-isNotEmpty :: Pattern -> Bool
+isNotEmpty :: Binding -> Bool
 isNotEmpty Empty = False
 isNotEmpty _ = True
 
--- Maybe PatternRoot
-combineBindings :: [BindingTree] -> BindingTree
+-- Maybe BindingTree
+combineBindings :: [Maybe BindingTree] -> Maybe BindingTree
 combineBindings [] = Just [] -- changed from Just emptyTree
 combineBindings l = foldl1 mergeTrees l
   where mergeTrees acc x = treeUnionWith <$> acc <*> x
   -- where mergeMaps = (<*>) . (<$>) $ Map.unionWith (error "duplicate pattern variable")
 
 
-treeUnionWith :: PatternRoot -> PatternRoot -> PatternRoot
+treeUnionWith :: BindingTree -> BindingTree -> BindingTree
 treeUnionWith a b = nubBy isDuplicate . filter isNotEmpty $ (a ++ b)
   where isDuplicate (Value ia _) (Value ib _) = if ia == ib then (error "duplicate pattern variable") else False
         isDuplicate _ _ = False
 
 
-emptyTree :: PatternRoot
+emptyTree :: BindingTree
 emptyTree = [Empty]
 
-singletonTree :: MetaNode -> MetaNode -> PatternRoot
+singletonTree :: MetaNode -> MetaNode -> BindingTree
 singletonTree pattern binding = [Value pattern binding]
 
-ellipsisTree :: MetaNode -> [Pattern] -> PatternRoot
+ellipsisTree :: MetaNode -> [Binding] -> BindingTree
 ellipsisTree pattern bindingList = [Ellipsis pattern bindingList]
 
 -- combineBindings :: [[BindingMap]] -> [BindingMap]
 
 
-match :: [Literal] -> Ellipsis -> MetaNode -> PatternNode -> BindingTree
+match :: [Literal] -> Ellipsis -> MetaNode -> PatternNode -> Maybe BindingTree
 -- if p is an underscore
 match _ _ _ (IdentifierAtom "_") = Just emptyTree
 -- if p is non literal
 match literals _ e@(IdentifierAtom identifier) p@(IdentifierAtom pidentifier)
+-- TODO discuss role of "lexical binding" in r7rs page 23, right column
   | pidentifier `elem` literals && identifier /= pidentifier = Nothing
   | otherwise = Just $ singletonTree p e
 
@@ -97,7 +99,9 @@ whenMaybe :: a -> Bool -> Maybe a
 whenMaybe a True = Just a
 whenMaybe _ False = Nothing
 
-matchList :: [Literal] -> Ellipsis -> MetaNode -> PatternNode -> BindingTree
+-- TODO ellipsis and _ can be literals
+
+matchList :: [Literal] -> Ellipsis -> MetaNode -> PatternNode -> Maybe BindingTree
 matchList literals ellipsis params patterns
  | ellipsisOccurences > 1 = error "illegal ellipsis in pattern"
  | ellipsisOccurences == 1 = if properLenght then (combineBindings [headMatches, ellipsisMatches, tailMatches]) else Nothing
