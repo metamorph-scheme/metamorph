@@ -74,6 +74,9 @@ parseSyntax = do
         QuasiQuote -> parseQuasiQuote
         If -> parseIf
         Set -> parseSet
+        PClose -> do
+            pullEq "PClose" PClose
+            return EmptyAtom
         _ -> parseApplication
 
 parseAtom :: State [Token] MetaNode
