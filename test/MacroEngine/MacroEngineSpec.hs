@@ -159,3 +159,37 @@ spec =
           patterns = PairNode (IdentifierAtom "id") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "c") EmptyAtom))
           params = PairNode (IdentifierAtom "lala") (PairNode (IdentifierAtom "pb") (PairNode (IdentifierAtom "pc") EmptyAtom))
         evaluate (matchApplication Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params) `shouldThrow` anyErrorCall
+    
+    describe "MacroEngine.transform" $ do
+      it "transform bindings one first level" $ do
+        transform [Value (IdentifierAtom "ident") (NumberAtom (Exact (Integer 3)))] (IdentifierAtom "ident") `shouldBe` (NumberAtom (Exact (Integer 3)))
+
+
+    describe "MacroEngine.applySyntaxRules" $ do
+      it "transforms single level macro" $ do
+        let
+          -- (syntax-rules () ((hansi (a b)) (b a)))
+          syntaxRules = ApplicationNode
+            (IdentifierAtom "syntax-rules")
+            [
+              EmptyAtom,
+              ApplicationNode
+                (ApplicationNode
+                  (IdentifierAtom "hansi")
+                  [
+                    ApplicationNode
+                      (IdentifierAtom "a")
+                      [IdentifierAtom "b"]
+                  ]
+                )
+                [
+                  ApplicationNode
+                    (IdentifierAtom "b")
+                    [IdentifierAtom "a"]
+                ]
+            ]
+          -- (flip (1 2))
+          application = ApplicationNode (IdentifierAtom "flip") [ApplicationNode (NumberAtom (Exact (Integer 1))) [NumberAtom (Exact (Integer 2))]]
+        -- shouldbe (2 1)
+        applySyntaxRules syntaxRules application `shouldBe` ApplicationNode (NumberAtom (Exact (Integer 2))) [NumberAtom (Exact (Integer 1))]
+          

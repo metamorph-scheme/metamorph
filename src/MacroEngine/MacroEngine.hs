@@ -3,6 +3,7 @@ module MacroEngine.MacroEngine where
 import Parser.MetaNode
 import qualified Data.Map as Map
 import Data.List
+import Data.Maybe (catMaybes, fromMaybe)
 
 type PatternNode = MetaNode
 type Literal = String
@@ -12,23 +13,48 @@ type Ellipsis = String
 type BindingTree = [Binding]
 data Binding = Ellipsis MetaNode [Binding] | Value MetaNode MetaNode | EllipsisValue MetaNode | EllipsisSubPattern BindingTree | Empty deriving (Show, Eq)
 
+data Template = Level MetaNode
+
 -- structure for patterns and templates
 data Pattern = Pattern { ellipsis :: Ellipsis, literals :: [Literal], patternNode :: PatternNode}
 type Template = MetaNode
 data SyntaxRule = SyntaxRule Pattern Template
 type SyntaxRules = [SyntaxRule]
 
+type Transformer = MetaNode -> MetaNode
 
-resolve :: MetaNode -> MetaNode -> MetaNode
-resolve = error "not implemented"
+applySyntaxRules :: MetaNode -> MetaNode -> MetaNode
+applySyntaxRules = apply . parseSyntaxRules
+
+apply :: SyntaxRules -> MetaNode -> MetaNode
+apply rules application = transform bindingTree template
+  where (bindingTree, template) = head . catMaybes . map ((\(SyntaxRule pattern template) -> (\b -> (b,template)) <$> matchApplication pattern application)) $ rules
+
+transform :: BindingTree -> MetaNode -> MetaNode
+transform bindingTree identifier@(IdentifierAtom _) = fromMaybe identifier (levelLookup identifier bindingTree) 
+transform bindingTree (ApplicationNode car cdr) = ApplicationNode (transform bindingTree car) (map (transform bindingTree) cdr)
+transform bindingTree (PairNode car cdr) = PairNode (transform bindingTree car) (transform bindingTree cdr)
+-- todo <ellipsis> <template>
+transform _ atom = atom
+  
+
+
+levelLookup :: MetaNode -> BindingTree -> Maybe MetaNode
+levelLookup e bindings = (\(Value _ k) -> k) <$> find isSameIdentifier bindings
+  where isSameIdentifier (Value k v) = k == e
+        isSameIdentifier _ = False
 
 parseSyntaxRules :: MetaNode -> SyntaxRules
 -- syntax-rules without ellipsis argument
 parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules") ((ApplicationNode literalsCar literalsCdr):syntaxRules)) =
   map (parseSyntaxRule "..." (map extractLiteral (literalsCar:literalsCdr))) syntaxRules
+parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules") (EmptyAtom:syntaxRules)) =
+  map (parseSyntaxRule "..." []) syntaxRules
 -- syntax-rules with ellipsis argument
 parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules") ((IdentifierAtom ellipsis):(ApplicationNode literalsCar literalsCdr):syntaxRules)) =
   map (parseSyntaxRule ellipsis (map extractLiteral (literalsCar:literalsCdr))) syntaxRules
+parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules") ((IdentifierAtom ellipsis):EmptyAtom:syntaxRules)) =
+  map (parseSyntaxRule ellipsis []) syntaxRules
 parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules") _) = error "invalid syntax-rules syntax"
 parseSyntaxRules _ = error "macro transformer via syntax-rules expected"
 
@@ -169,3 +195,6 @@ mapTuple f (a1, a2) = (f a1, f a2)
 
 count   :: Eq a => a -> [a] -> Int
 count x =  length . filter (==x)
+
+toFst :: (a -> b) -> a -> (b, a)
+toFst f a = (f a, a)
