@@ -1,5 +1,6 @@
 (define (fac n)
-    (define ident 1)
+    (define zerod 0)
+    (define ident (+ zerod 1))
     (if (> n 0) 
         (* n (fac (- n 1)))
         ident))

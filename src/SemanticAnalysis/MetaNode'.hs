@@ -10,7 +10,7 @@ schemeFunctions = ["*","+","-","...","/","<","<=","=","=>",">",">=","abs","appen
 schemeMakros :: [String]
 schemeMakros = ["guard","parameterize","make-parameter","do","begin","and","case","cond","cond-expand","let","let*","let-values","let*-values","letrec","letrec*","or","unless","when"]
 
-data MetaNode' = RootNode' Int MetaNode' -- Number of globals
+data MetaNode' = BodyNode' Int [MetaNode'] -- Number of Bodyparams, only generate BODY directive if > 0
     -- Formal number of params, additional variadic param
     -- construction of variadic at runtime in lambda! handled by C Lib
     | LambdaNode' Int Bool MetaNode'
@@ -28,23 +28,22 @@ data MetaNode' = RootNode' Int MetaNode' -- Number of globals
     -- Distinction between application of function or continuation needs to be handled at runtime! handled by C Lib
     | ApplicationNode' Bool MetaNode' [MetaNode'] -- Tailcall Mark; implicit number of real params
     | IfNode' MetaNode' MetaNode' MetaNode' -- In order to become expression, stack is needed
-    | SetNode' MetaNode' MetaNode' -- nonmakro defines become set
-    | BodyNode' [MetaNode']
+    | SetNode' MetaNode' MetaNode' -- defines become set
+
   
 data SymbolTable = Activation [(String, Int)] SymbolTable
     | Syntax [(String, MetaNode -> MetaNode)]  SymbolTable
     | IgnoreNext Int SymbolTable
-    | Global [(String, Int)]
+    | Global
 
 instance Show SymbolTable where
     show (Activation ls tb) = "Actvation: " ++ show ls ++ "\n" ++ show tb
     show (Syntax ls tb) = "Syntax: " ++ show (fst <$> ls) ++ "\n" ++ show tb
-    show (Global ls ) = "Global: " ++ show ls 
+    show Global = "Global"
 
 instance Show MetaNode' where
-    show (RootNode' n mns') = "Root(" ++ show n ++ "):\n" ++ show mns' 
     show (LambdaNode' n False mns') = "Lambda(" ++ show n ++ "):\n" ++ show mns'
-    show (BodyNode' mns') = show mns'
+    show (BodyNode' n mns') = "Body(" ++ show n ++ "): " ++ show mns'
     show (LambdaNode' n True mns') = "LambdaVariadic(" ++ show n ++ " + 1):\n" ++ show mns' 
     show (PairNode' mn' mn2') = "Pair: " ++ show (mn',mn2') 
     show (NumberAtom' n) = show n

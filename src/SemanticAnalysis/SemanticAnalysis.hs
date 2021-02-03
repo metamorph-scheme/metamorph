@@ -44,14 +44,14 @@ popEntries = do
         Activation _ table -> put table
         Syntax _ table -> put table
         IgnoreNext _ table -> put table
-        Global _ -> error "Internal Compiler Error: popEntries on global symbols"
+        Global -> error "Internal Compiler Error: popEntries on empty symbol table"
 
 initSymbolTable :: [MetaNode] -> State AnalysisState [MetaNode]
 initSymbolTable ((DefineNode (IdentifierAtom str) trg):ms) = do
     oldentries <- get
     case oldentries of
-        Global entries -> do
-            put $ Global ((str, length entries):entries)
+        Activation entries next -> do
+            put $ Activation ((str, length entries):entries) next
             ms' <- initSymbolTable ms
             return $ (SetNode (IdentifierAtom str) trg):ms'
         _ -> error "Internal Compiler Error: Incorrect Usage of initSymbolTable"
@@ -62,34 +62,38 @@ initSymbolTable [] = return []
 
 semanticAnalysis :: [MetaNode] -> MetaNode'
 semanticAnalysis mn = 
-    fst $ runState (annotateProgram mn) (Global [])
- 
-annotateProgram :: [MetaNode] -> State AnalysisState MetaNode'
-annotateProgram mn = do
-    mn' <- initSymbolTable mn
-    mn'' <- annotateBody mn' False
-    glob <- get
-    case glob of
-        Global ls -> return $ RootNode' (length ls) (BodyNode' mn'')
-        _ -> error "Internal Compiler Error: Symbol table entries not popped"
+    evalState (annotateBody mn False) Global
 
-annotateBody :: [MetaNode] -> Bool -> State AnalysisState [MetaNode']
-annotateBody [] _ = return []
-annotateBody (definesyntax@(DefineSyntaxNode _ _):es) tail = do 
+annotateBody :: [MetaNode] -> Bool -> State AnalysisState MetaNode'
+annotateBody mn tail = do
+    pushActivationEntries []
+    mn' <- initSymbolTable mn
+    tb <- get
+    case tb of 
+        -- dont count empty bodies
+        (Activation [] _) -> do
+            popEntries -- bound numbers will not include empty body activation
+            mn'' <- annotateList mn' tail
+            return $ BodyNode' 0 mn''
+        (Activation entries _) -> do
+            mn'' <- annotateList mn' tail
+            popEntries
+            return $ BodyNode' (length entries) mn''
+        _ -> error "Internal Compiler Error: Faulty symbol table"
+
+annotateList :: [MetaNode] -> Bool -> State AnalysisState [MetaNode']
+annotateList [] _ = return []
+annotateList (definesyntax@(DefineSyntaxNode _ _):es) tail = do 
     pushSyntaxEntries (makroengineDefine definesyntax)
-    es' <- annotateBody es tail
+    es' <- annotateList es tail
     popEntries
     return es'
--- not 100% correct behaviour
-annotateBody ((DefineNode identifier src):es) tail = do
-    body' <- annotateExpression (ApplicationNode (LambdaNode [identifier] (IdentifierAtom "") es) [src]) tail
-    return [body']
-annotateBody [e] tail = do 
+annotateList [e] tail = do 
     e' <- annotateExpression e tail
     return [e']
-annotateBody (e:es) tail = do 
+annotateList (e:es) tail = do 
     e' <- annotateExpression e False
-    es' <- annotateBody es tail
+    es' <- annotateList es tail
     return $ e':es'
 
 annotateExpression :: MetaNode -> Bool -> State AnalysisState MetaNode'
@@ -119,18 +123,18 @@ annotateExpression (StringAtom cs) _ = return $ StringAtom' cs
 annotateExpression (BoolAtom b) _ = return $ BoolAtom' b
 annotateExpression (CharAtom c) _ = return $ CharAtom' c
 -- Internal defines OUTSIDE of a body have no meaning
-annotateExpression (DefineNode _ _) _ =  return $ BodyNode' []
-annotateExpression (DefineSyntaxNode _ _) _ = return $ BodyNode' []
+annotateExpression (DefineNode _ _) _ =  return $ BodyNode' 0 []
+annotateExpression (DefineSyntaxNode _ _) _ = return $ BodyNode' 0 []
 
 annotateLambda :: MetaNode -> State AnalysisState MetaNode'
 annotateLambda (LambdaNode (params) variadic exprs) = do
     pushActivationEntries $ ((\(IdentifierAtom str) -> str) <$> (params ++ [variadic]))
-    exprs' <- annotateBody exprs True
+    body' <- annotateBody exprs True
     popEntries
     if (\(IdentifierAtom str) -> null str) variadic then
-        return $ LambdaNode' (length params) False (BodyNode' exprs')
+        return $ LambdaNode' (length params) False  body'
     else
-        return $ LambdaNode' (length params) True (BodyNode' exprs')
+        return $ LambdaNode' (length params) True body'
 
 -- Makro params need to be annotated
 annotateApplication :: MetaNode -> Bool -> State AnalysisState MetaNode'
@@ -139,7 +143,7 @@ annotateApplication (ApplicationNode mn params) tail = do
     case mn' of
         (BaseSyntaxAtom' str) -> do
             symtable <- get
-            put (Global [])
+            put Global 
             mn' <- annotateExpression ((makroengineBase str) (ApplicationNode mn params)) tail
             put symtable
             return mn'
@@ -149,7 +153,7 @@ annotateApplication (ApplicationNode mn params) tail = do
             popEntries
             return mn'
         _ -> do
-            params' <- annotateBody params False
+            params' <- annotateList params False
             return $ ApplicationNode' tail mn' params'
 
 annotateIdentifier :: MetaNode -> State AnalysisState MetaNode'
@@ -162,6 +166,12 @@ resolveIdentifier :: String -> Int -> Int -> Int -> State AnalysisState MetaNode
 resolveIdentifier str parent level 0 = do
     entry <- get
     id <- case entry of
+            Activation ls Global -> do
+                case lookup str ls of
+                    Nothing -> do 
+                        put Global 
+                        resolveIdentifier str (parent+1) (level+1) 0
+                    (Just p) -> return $ GlobalAtom' p
             Activation ls tb -> do
                 case lookup str ls of
                     Nothing -> do 
@@ -177,12 +187,10 @@ resolveIdentifier str parent level 0 = do
             IgnoreNext n tb -> do
                 put tb
                 resolveIdentifier str parent level n
-            Global ls -> do
-                case lookup str ls of
-                    Nothing -> error $ "Unbound Symbol: Identifier " ++ str ++ " is not in scope"
-                    (Just p) -> return $ GlobalAtom' p
+            Global -> error $ "Unbound Symbol: Identifier " ++ str ++ " is not in scope"
     put entry
     return id
+
 resolveIdentifier str parent level ignore = do
     entry <- get
     id <- case entry of
@@ -195,7 +203,7 @@ resolveIdentifier str parent level ignore = do
             IgnoreNext _ tb -> do
                 put tb
                 resolveIdentifier str parent level (ignore-1)
-            Global ls -> error "Internal Compiler Error: To high ignore value"
+            Global -> error "Internal Compiler Error: To high ignore value"
     put entry
     return id
 
@@ -204,11 +212,11 @@ annotateLetSyntax (LetSyntaxNode rules body) tail = do
     pushSyntaxEntries (makroengineLet rules)
     body' <- annotateBody body tail
     popEntries
-    return (BodyNode' body')
+    return body'
 
 annotateLetrecSyntax :: MetaNode -> Bool -> State AnalysisState MetaNode'
 annotateLetrecSyntax (LetrecSyntaxNode rules body) tail = do
     pushSyntaxEntries (makroengineLetrec rules)
     body' <- annotateBody body tail
     popEntries
-    return (BodyNode' body')
+    return body'
