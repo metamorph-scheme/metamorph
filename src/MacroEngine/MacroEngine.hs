@@ -4,6 +4,7 @@ import Parser.MetaNode
 import qualified Data.Map as Map
 import Data.List
 import Data.Maybe (catMaybes, fromMaybe)
+import MacroEngine.TemplateMetaNode
 
 type PatternNode = MetaNode
 type Literal = String
@@ -11,13 +12,13 @@ type Ellipsis = String
 
 -- tree like structure for bindings
 type BindingTree = [Binding]
-data Binding = Ellipsis MetaNode [Binding] | Value MetaNode MetaNode | EllipsisValue MetaNode | EllipsisSubPattern BindingTree | Empty deriving (Show, Eq)
-
-data Template = Level MetaNode
+data Binding = SubPatternEllipsis MetaNode [BindingTree] | IdentifierEllipsis MetaNode [MetaNode] | Value MetaNode MetaNode | Empty deriving (Show, Eq)
 
 -- structure for patterns and templates
 data Pattern = Pattern { ellipsis :: Ellipsis, literals :: [Literal], patternNode :: PatternNode}
-type Template = MetaNode
+type Template = TemplateMetaNode
+-- data Template = Level MetaNode | TemplateEllipsis
+
 data SyntaxRule = SyntaxRule Pattern Template
 type SyntaxRules = [SyntaxRule]
 
@@ -27,21 +28,33 @@ applySyntaxRules :: MetaNode -> MetaNode -> MetaNode
 applySyntaxRules = apply . parseSyntaxRules
 
 apply :: SyntaxRules -> MetaNode -> MetaNode
-apply rules application = transform bindingTree template
+apply rules application = renderTemplate . transform bindingTree $ template
   where (bindingTree, template) = head . catMaybes . map ((\(SyntaxRule pattern template) -> (\b -> (b,template)) <$> matchApplication pattern application)) $ rules
 
-transform :: BindingTree -> MetaNode -> MetaNode
-transform bindingTree identifier@(IdentifierAtom _) = fromMaybe identifier (levelLookup identifier bindingTree) 
-transform bindingTree (ApplicationNode car cdr) = ApplicationNode (transform bindingTree car) (map (transform bindingTree) cdr)
-transform bindingTree (PairNode car cdr) = PairNode (transform bindingTree car) (transform bindingTree cdr)
+renderTemplate :: Template -> MetaNode
+renderTemplate (TemplateListNode list) = ApplicationNode (renderTemplate (head list)) (map renderTemplate (tail list))
+renderTemplate (TemplateImproperListNode [a,b]) = PairNode (renderTemplate a) (renderTemplate b)
+renderTemplate (TemplateImproperListNode list) = PairNode (renderTemplate (head list)) (renderTemplate (TemplateImproperListNode (tail list)))
+renderTemplate (TemplateAtom atom) = atom
+renderTemplate (TemplateLambdaNode a b c) = LambdaNode (map renderTemplate a) (renderTemplate b) (map renderTemplate c)
+renderTemplate (TemplateIdentifierAtom identifierStr) = IdentifierAtom identifierStr
+renderTemplate (TemplateSetNode a b) = SetNode (renderTemplate a) (renderTemplate b)
+renderTemplate (TemplateDefineNode a b) = DefineNode (renderTemplate a) (renderTemplate b)
+
+transform :: BindingTree -> Template -> Template
+-- transform :: bindings -> template -> transformed template
+transform = transformElliptic 0
+
+transformElliptic :: Integer -> BindingTree -> Template -> Template
+transformElliptic level bindingTree identifier@(TemplateIdentifierAtom identifierString) = fromMaybe identifier (levelLookup identifierString bindingTree) 
+transformElliptic level bindingTree (TemplateListNode cdr) = TemplateListNode (map (transform bindingTree) cdr)
+transformElliptic level bindingTree (TemplateImproperListNode cdr) = TemplateImproperListNode (map (transform bindingTree) cdr)
 -- todo <ellipsis> <template>
-transform _ atom = atom
-  
+transformElliptic _ _ atom = atom
 
-
-levelLookup :: MetaNode -> BindingTree -> Maybe MetaNode
-levelLookup e bindings = (\(Value _ k) -> k) <$> find isSameIdentifier bindings
-  where isSameIdentifier (Value k v) = k == e
+levelLookup :: String -> BindingTree -> Maybe Template
+levelLookup e bindings = ellipsisFreeTemplate <$> (\(Value _ k) -> k) <$> find isSameIdentifier bindings
+  where isSameIdentifier (Value (IdentifierAtom k) v) = k == e
         isSameIdentifier _ = False
 
 parseSyntaxRules :: MetaNode -> SyntaxRules
@@ -64,9 +77,45 @@ extractLiteral _ = error "invalid literal identifier given"
 
 parseSyntaxRule :: Ellipsis -> [Literal] -> MetaNode -> SyntaxRule
 parseSyntaxRule ellipsis literals (ApplicationNode patternNode [template]) =
-  SyntaxRule Pattern{ellipsis=ellipsis, literals=literals, patternNode=patternNode} template
+  SyntaxRule Pattern{ellipsis=ellipsis, literals=literals, patternNode=patternNode} (analyseTemplate ellipsis template)
 parseSyntaxRule _ _ _ = error "invalid syntax-rule syntax"
 
+analyseTemplate :: Ellipsis -> MetaNode -> Template
+analyseTemplate ellipsis a@(ApplicationNode _ _) = TemplateListNode (analyseTemplateList ellipsis (makeList a))
+analyseTemplate ellipsis p@(PairNode _ _) = TemplateImproperListNode (analyseTemplateList ellipsis (makeList p))
+analyseTemplate ellipsis (LambdaNode a b c) = TemplateLambdaNode (map (analyseTemplate ellipsis) a) (analyseTemplate ellipsis b) (map (analyseTemplate ellipsis) c)
+analyseTemplate _ atom@(NumberAtom a) = TemplateAtom atom
+analyseTemplate _ atom@(EmptyAtom) = TemplateAtom atom
+analyseTemplate _ atom@(StringAtom a) = TemplateAtom atom
+analyseTemplate _ atom@(BoolAtom a) = TemplateAtom atom
+analyseTemplate _ atom@(CharAtom a) = TemplateAtom atom
+analyseTemplate _ (IdentifierAtom a) = TemplateIdentifierAtom a
+analyseTemplate ellipsis (SetNode a b) = TemplateSetNode (analyseTemplate ellipsis a) (analyseTemplate ellipsis b)
+analyseTemplate ellipsis (DefineNode a b) = TemplateDefineNode (analyseTemplate ellipsis a) (analyseTemplate ellipsis b)
+
+ellipsisFreeTemplate :: MetaNode -> Template
+ellipsisFreeTemplate a@(ApplicationNode _ _) = TemplateListNode (map ellipsisFreeTemplate (makeList a))
+ellipsisFreeTemplate p@(PairNode _ _) = TemplateImproperListNode (map ellipsisFreeTemplate (makeList p))
+ellipsisFreeTemplate (LambdaNode a b c) = TemplateLambdaNode (map ellipsisFreeTemplate a) (ellipsisFreeTemplate b) (map ellipsisFreeTemplate c)
+ellipsisFreeTemplate atom@(NumberAtom a) = TemplateAtom atom
+ellipsisFreeTemplate atom@(EmptyAtom) = TemplateAtom atom
+ellipsisFreeTemplate atom@(StringAtom a) = TemplateAtom atom
+ellipsisFreeTemplate atom@(BoolAtom a) = TemplateAtom atom
+ellipsisFreeTemplate atom@(CharAtom a) = TemplateAtom atom
+ellipsisFreeTemplate (IdentifierAtom a) = TemplateIdentifierAtom a
+ellipsisFreeTemplate (SetNode a b) = TemplateSetNode (ellipsisFreeTemplate a) (ellipsisFreeTemplate b)
+ellipsisFreeTemplate (DefineNode a b) = TemplateDefineNode (ellipsisFreeTemplate a) (ellipsisFreeTemplate b)
+
+analyseTemplateList :: Ellipsis -> [MetaNode] -> [Template]
+analyseTemplateList ellipsis = fst . foldr (wrapOnEllipsis ellipsis) ([],0)
+
+wrapOnEllipsis :: Ellipsis -> MetaNode -> ([Template], Integer) -> ([Template], Integer)
+wrapOnEllipsis ellipsis metaNode (nl, wrapCount)
+  | metaNode == (IdentifierAtom ellipsis) = (nl, wrapCount + 1)
+  | otherwise = ((wrap metaNode wrapCount):nl,0)
+  where
+    wrap node 0 = analyseTemplate ellipsis node
+    wrap node count = TemplateEllipsisNode (wrap node (count - 1))
 
 -- verify if macro call matches a pattern
 matchApplication :: Pattern -> MetaNode -> Maybe BindingTree
@@ -82,17 +131,8 @@ zipAndCombineBindings :: (PatternNode -> MetaNode -> Maybe BindingTree) -> [Patt
 -- zipWith yields [Maybe BindingTree] = [Maybe [Binding]]
 zipAndCombineBindings f pl el = combineBindings . zipWith f pl $ el
 
-zipAndCombineEllipsisBindings :: (PatternNode -> MetaNode -> Maybe BindingTree) -> [PatternNode] -> [MetaNode] -> Maybe BindingTree
-zipAndCombineEllipsisBindings f pl el = combineBindings . map (fmap bindingListToEllipsisSubNode) . zipWith f pl $ el
-
-
-bindingListToEllipsisSubNode bindingList
-  | length filteredBindingList <= 1 = map valueToEllipsisValue filteredBindingList
-  | otherwise = [EllipsisSubPattern filteredBindingList]
-  where filteredBindingList = filter isNotEmpty bindingList
-
-valueToEllipsisValue (Value _ v) = (EllipsisValue v)
-valueToEllipsisValue pattern = pattern
+zipAndCombineEllipsisBindings :: (PatternNode -> MetaNode -> Maybe BindingTree) -> [PatternNode] -> [MetaNode] -> Maybe [BindingTree]
+zipAndCombineEllipsisBindings f pl el = sequence . zipWith f pl $ el
 
 isNotEmpty :: Binding -> Bool
 isNotEmpty Empty = False
@@ -105,12 +145,10 @@ combineBindings l = foldl1 mergeTrees l
   where mergeTrees acc x = treeUnionWith <$> acc <*> x
   -- where mergeMaps = (<*>) . (<$>) $ Map.unionWith (error "duplicate pattern variable")
 
-
 treeUnionWith :: BindingTree -> BindingTree -> BindingTree
 treeUnionWith a b = nubBy isDuplicate . filter isNotEmpty $ (a ++ b)
   where isDuplicate (Value ia _) (Value ib _) = if ia == ib then (error "duplicate pattern variable") else False
         isDuplicate _ _ = False
-
 
 emptyTree :: BindingTree
 emptyTree = [Empty]
@@ -118,8 +156,16 @@ emptyTree = [Empty]
 singletonTree :: MetaNode -> MetaNode -> BindingTree
 singletonTree pattern binding = [Value pattern binding]
 
-ellipsisTree :: MetaNode -> [Binding] -> BindingTree
-ellipsisTree pattern bindingList = [Ellipsis pattern bindingList]
+ellipsisBinding :: MetaNode -> [[Binding]] -> Binding
+ellipsisBinding p@(PairNode _ _) bindings = SubPatternEllipsis p bindings
+ellipsisBinding p@(ApplicationNode _ _) bindings = SubPatternEllipsis p bindings
+ellipsisBinding pattern bindings = IdentifierEllipsis pattern (map singletonTreeToEllipsisValue (filter isNotSingletonEmpty (bindings)))
+  where
+    singletonTreeToEllipsisValue [(Value _ v)] = v
+    -- exhaustion is error because constant ellipsis patterns are already filtered
+    -- IdentifierEllipsis cannot have another Ellipsis inside
+    isNotSingletonEmpty [Empty] = False
+    isNotSingletonEmpty _ = True
 
 curriedMatch :: Ellipsis -> [Literal] -> PatternNode -> MetaNode -> Maybe BindingTree
 curriedMatch ellipsis literals pattern = match Pattern{ellipsis=ellipsis, literals=literals, patternNode=pattern}
@@ -161,7 +207,7 @@ matchList Pattern{ellipsis=ellipsis, literals=literals, patternNode=patternNode}
   where
     properLenght = patternLenght <= paramLenght
     headMatches = if (headLenght == length headParams) then (zipAndCombineBindings (curriedMatch ellipsis literals) headPattern headParams) else Nothing
-    ellipsisMatches = fmap (\patternList -> ellipsisTree ellipsisPattern patternList) ellipsisBindingTree
+    ellipsisMatches = fmap (\bindingList -> [ellipsisBinding ellipsisPattern bindingList]) ellipsisBindingTree
     ellipsisBindingTree = zipAndCombineEllipsisBindings (curriedMatch ellipsis literals) (repeat ellipsisPattern) ellipsisParams
     tailMatches = if (tailLenght == length tailParams) then (zipAndCombineBindings (curriedMatch ellipsis literals) tailPattern tailParams) else Nothing 
     headParams = take headLenght paramList

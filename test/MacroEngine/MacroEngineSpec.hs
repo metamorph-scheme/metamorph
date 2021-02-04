@@ -1,6 +1,7 @@
 module MacroEngine.MacroEngineSpec where
 
 import MacroEngine.MacroEngine
+import MacroEngine.TemplateMetaNode
 import Parser.MetaNode
 import Common.Number
 import qualified Data.Map as Map
@@ -64,47 +65,47 @@ spec =
           let
             patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "...") (PairNode (IdentifierAtom "b") EmptyAtom))
             params = PairNode (IdentifierAtom "node") (PairNode (IdentifierAtom "anothernode") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "la") (PairNode (IdentifierAtom "blah") EmptyAtom))))
-          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Ellipsis (IdentifierAtom "a") [EllipsisValue (IdentifierAtom "node"), EllipsisValue (IdentifierAtom "anothernode"), EllipsisValue (IdentifierAtom "b"), EllipsisValue (IdentifierAtom "la")], Value (IdentifierAtom "b") (IdentifierAtom "blah")] 
+          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [IdentifierEllipsis (IdentifierAtom "a") [ (IdentifierAtom "node"),  (IdentifierAtom "anothernode"),  (IdentifierAtom "b"),  (IdentifierAtom "la")], Value (IdentifierAtom "b") (IdentifierAtom "blah")] 
         it "matches ellipsis [one][beginning]" $ do
           let
             patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "...") (PairNode (IdentifierAtom "b") EmptyAtom))
             params = PairNode (IdentifierAtom "node") (PairNode (IdentifierAtom "la") EmptyAtom)
-          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Ellipsis (IdentifierAtom "a") [EllipsisValue (IdentifierAtom "node")], Value (IdentifierAtom "b") (IdentifierAtom "la")]
+          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [IdentifierEllipsis (IdentifierAtom "a") [ (IdentifierAtom "node")], Value (IdentifierAtom "b") (IdentifierAtom "la")]
         it "matches ellipsis [zero][beginning]" $ do
           let
             patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "...") (PairNode (IdentifierAtom "b") EmptyAtom))
             params = PairNode (IdentifierAtom "la") EmptyAtom
-          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Ellipsis (IdentifierAtom "a") [], Value (IdentifierAtom "b") (IdentifierAtom "la")]
+          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [IdentifierEllipsis (IdentifierAtom "a") [], Value (IdentifierAtom "b") (IdentifierAtom "la")]
         it "matches ellipsis [multiple][middle]" $ do
           let
             patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "...") (PairNode (IdentifierAtom "c") EmptyAtom)))
             params = PairNode (IdentifierAtom "node") (PairNode (IdentifierAtom "anothernode") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "la") (PairNode (IdentifierAtom "blah") EmptyAtom))))
-          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "node"), Ellipsis (IdentifierAtom "b") [EllipsisValue (IdentifierAtom "anothernode"), EllipsisValue (IdentifierAtom "b"), EllipsisValue (IdentifierAtom "la")], Value (IdentifierAtom "c") (IdentifierAtom "blah")] 
+          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "node"), IdentifierEllipsis (IdentifierAtom "b") [ (IdentifierAtom "anothernode"),  (IdentifierAtom "b"),  (IdentifierAtom "la")], Value (IdentifierAtom "c") (IdentifierAtom "blah")] 
         it "matches ellipsis [one][middle]" $ do
           let
             patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "...") (PairNode (IdentifierAtom "c") EmptyAtom)))
             params = PairNode (IdentifierAtom "node") (PairNode (IdentifierAtom "la") (PairNode (IdentifierAtom "blah") EmptyAtom))
-          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "node"), Ellipsis (IdentifierAtom "b") [EllipsisValue (IdentifierAtom "la")], Value (IdentifierAtom "c") (IdentifierAtom "blah")] 
+          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "node"), IdentifierEllipsis (IdentifierAtom "b") [ (IdentifierAtom "la")], Value (IdentifierAtom "c") (IdentifierAtom "blah")] 
         it "matches ellipsis [zero][middle]" $ do
           let
             patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "...") (PairNode (IdentifierAtom "c") EmptyAtom)))
             params = PairNode (IdentifierAtom "la") (PairNode (IdentifierAtom "blah") EmptyAtom)
-          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "la"), Ellipsis (IdentifierAtom "b") [], Value (IdentifierAtom "c") (IdentifierAtom "blah")]
+          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "la"), IdentifierEllipsis (IdentifierAtom "b") [], Value (IdentifierAtom "c") (IdentifierAtom "blah")]
         it "matches ellipsis [multiple][end]" $ do
           let
             patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "...") EmptyAtom))
             params = PairNode (IdentifierAtom "node") (PairNode (IdentifierAtom "anothernode") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "la") (PairNode (IdentifierAtom "blah") EmptyAtom))))
-          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "node"), Ellipsis (IdentifierAtom "b") [EllipsisValue (IdentifierAtom "anothernode"), EllipsisValue (IdentifierAtom "b"), EllipsisValue (IdentifierAtom "la"), EllipsisValue (IdentifierAtom "blah")]] 
+          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "node"), IdentifierEllipsis (IdentifierAtom "b") [ (IdentifierAtom "anothernode"),  (IdentifierAtom "b"),  (IdentifierAtom "la"),  (IdentifierAtom "blah")]] 
         it "matches ellipsis [one][end]" $ do
           let
             patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "...") EmptyAtom))
             params = PairNode (IdentifierAtom "node") (PairNode (IdentifierAtom "la") EmptyAtom)
-          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "node"), Ellipsis (IdentifierAtom "b") [EllipsisValue (IdentifierAtom "la")]]
+          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "node"), IdentifierEllipsis (IdentifierAtom "b") [ (IdentifierAtom "la")]]
         it "matches ellipsis [zero][end]" $ do
           let
             patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "...") EmptyAtom))
             params = PairNode (IdentifierAtom "la") EmptyAtom
-          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "la"), Ellipsis (IdentifierAtom "b") []]
+          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Value (IdentifierAtom "a") (IdentifierAtom "la"), IdentifierEllipsis (IdentifierAtom "b") []]
         it "does not match too short params with ellipsis" $ do
           let
             patterns = PairNode (IdentifierAtom "a") (PairNode (IdentifierAtom "b") (PairNode (IdentifierAtom "c") (PairNode (IdentifierAtom "...") EmptyAtom)))
@@ -114,7 +115,7 @@ spec =
           let
             patterns = PairNode (PairNode (IdentifierAtom "name") (PairNode (IdentifierAtom "value") EmptyAtom)) (PairNode (IdentifierAtom "...") EmptyAtom)
             params = PairNode (PairNode (IdentifierAtom "one") (PairNode (NumberAtom (Exact (Integer 3))) EmptyAtom)) (PairNode (PairNode (IdentifierAtom "two") (PairNode (NumberAtom (Exact (Integer 4))) EmptyAtom)) (PairNode (PairNode (IdentifierAtom "three") (PairNode (NumberAtom (Exact (Integer 2))) EmptyAtom)) EmptyAtom))
-          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [Ellipsis (PairNode (IdentifierAtom "name") (PairNode (IdentifierAtom "value") EmptyAtom)) [EllipsisSubPattern [Value (IdentifierAtom "name") (IdentifierAtom "one"),Value (IdentifierAtom "value") (NumberAtom (Exact (Integer 3)))],EllipsisSubPattern [Value (IdentifierAtom "name") (IdentifierAtom "two"),Value (IdentifierAtom "value") (NumberAtom (Exact (Integer 4)))],EllipsisSubPattern [Value (IdentifierAtom "name") (IdentifierAtom "three"),Value (IdentifierAtom "value") (NumberAtom (Exact (Integer 2)))]]]
+          matchList Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params `shouldBe` Just [SubPatternEllipsis (PairNode (IdentifierAtom "name") (PairNode (IdentifierAtom "value") EmptyAtom)) [[Value (IdentifierAtom "name") (IdentifierAtom "one"),Value (IdentifierAtom "value") (NumberAtom (Exact (Integer 3)))],[Value (IdentifierAtom "name") (IdentifierAtom "two"),Value (IdentifierAtom "value") (NumberAtom (Exact (Integer 4)))],[Value (IdentifierAtom "name") (IdentifierAtom "three"),Value (IdentifierAtom "value") (NumberAtom (Exact (Integer 2)))]]]
       describe "sublist" $ do
         it "matches sublists" $ do
           let
@@ -162,7 +163,7 @@ spec =
     
     describe "MacroEngine.transform" $ do
       it "transform bindings one first level" $ do
-        transform [Value (IdentifierAtom "ident") (NumberAtom (Exact (Integer 3)))] (IdentifierAtom "ident") `shouldBe` (NumberAtom (Exact (Integer 3)))
+        transform [Value (IdentifierAtom "ident") (NumberAtom (Exact (Integer 3)))] (TemplateIdentifierAtom "ident") `shouldBe` (TemplateAtom (NumberAtom (Exact (Integer 3))))
 
 
     describe "MacroEngine.applySyntaxRules" $ do
@@ -192,4 +193,10 @@ spec =
           application = ApplicationNode (IdentifierAtom "flip") [ApplicationNode (NumberAtom (Exact (Integer 1))) [NumberAtom (Exact (Integer 2))]]
         -- shouldbe (2 1)
         applySyntaxRules syntaxRules application `shouldBe` ApplicationNode (NumberAtom (Exact (Integer 2))) [NumberAtom (Exact (Integer 1))]
-          
+
+    describe "MacroEngine.analyseTemplateList" $ do
+      it "resolves single ellipsis" $ do
+        analyseTemplateList ellipsis [IdentifierAtom "a", IdentifierAtom "...", IdentifierAtom "b"] `shouldBe` [TemplateEllipsisNode (TemplateIdentifierAtom "a"), TemplateIdentifierAtom "b"]
+
+      it "resolves double ellipsis" $ do
+        analyseTemplateList ellipsis [IdentifierAtom "a", IdentifierAtom "...", IdentifierAtom "...", IdentifierAtom "b"] `shouldBe` [TemplateEllipsisNode (TemplateEllipsisNode (TemplateIdentifierAtom "a")), TemplateIdentifierAtom "b"]
