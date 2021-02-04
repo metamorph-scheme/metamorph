@@ -55,6 +55,7 @@ initSymbolTable ((DefineNode (IdentifierAtom str) trg):ms) = do
             ms' <- initSymbolTable ms
             return $ (SetNode (IdentifierAtom str) trg):ms'
         _ -> error "Internal Compiler Error: Incorrect Usage of initSymbolTable"
+initSymbolTable ((DefineNode _ _):ms) = error "Expected identifier as first argument of define"
 initSymbolTable (m:ms) = do
     ms' <- initSymbolTable ms
     return (m:ms')
@@ -112,10 +113,11 @@ annotateExpression (IfNode ifexpr thenbr elsebr) tail = do
     thenbr' <- annotateExpression thenbr tail
     elsebr' <- annotateExpression elsebr tail
     return $ IfNode' ifexpr' thenbr' elsebr'
-annotateExpression (SetNode src trg) _ = do
+annotateExpression (SetNode src@(IdentifierAtom _) trg) _ = do
     src' <- annotateExpression src False
     trg' <- annotateExpression trg False
     return $ SetNode' src' trg'
+annotateExpression (SetNode _ _) _ = error "Expected identifier as first argument of set!"
 -- Trivial Annotations
 annotateExpression (NumberAtom n) _ = return $ NumberAtom' n
 annotateExpression EmptyAtom _ = return $ EmptyAtom'
