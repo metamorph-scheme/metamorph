@@ -46,9 +46,22 @@ transform :: BindingTree -> Template -> Template
 transform = transformElliptic 0
 
 transformElliptic :: Integer -> BindingTree -> Template -> Template
-transformElliptic level bindingTree identifier@(TemplateIdentifierAtom identifierString) = fromMaybe identifier (levelLookup identifierString bindingTree) 
-transformElliptic level bindingTree (TemplateListNode cdr) = TemplateListNode (map (transform bindingTree) cdr)
-transformElliptic level bindingTree (TemplateImproperListNode cdr) = TemplateImproperListNode (map (transform bindingTree) cdr)
+--                                                                                                                                          |<- fix this shit, just here to compile
+-- this need context from the parent
+transformElliptic level bindingTree identifier@(TemplateIdentifierAtom identifierString) = fromMaybe identifier (ellipsisFreeTemplate <$> head <$> bindingLookup level identifierString bindingTree) 
+transformElliptic level bindingTree (TemplateEllipsisNode subTemplate) = transformElliptic (level+1) bindingTree subTemplate 
+--transformElliptic level bindingTree (TemplateEllipsisNode subTemplate@(TemplateIdentifierAtom _)) = transformElliptic (level+1) bindingTree subTemplate 
+--transformElliptic level bindingTree (TemplateEllipsisNode subTemplate@(TemplateEllipsisNode _)) = transformElliptic (level+1) bindingTree subTemplate 
+--transformElliptic level bindingTree (TemplateEllipsisNode subTemplate@(TemplateIdentifierAtom _)) = transformElliptic (level+1) bindingTree subTemplate 
+-- complex elliptic subpattern
+-- adjust levels
+-- search unique ellipsis subtree (normal case: identifiers in subtemplate are either free references or refer to the same subpatternellipsis
+-- a special case is that pattern variables refer to different subpatternellipses, where the lenght of input parameters has to match)
+-- identifiers and ellipses in the subtemplate can still refer to level 0
+--transformElliptic level bindingTree (TemplateEllipsisNode subTemplate@(TemplateListNode _)) = transformElliptic (level+1) bindingTree subTemplate 
+-- other template ellipsis nodes like numbers etc are invalid
+transformElliptic level bindingTree (TemplateListNode cdr) = TemplateListNode (map (transformElliptic level bindingTree) cdr)
+transformElliptic level bindingTree (TemplateImproperListNode cdr) = TemplateImproperListNode (map (transformElliptic level bindingTree) cdr)
 -- todo <ellipsis> <template>
 transformElliptic _ _ atom = atom
 
@@ -56,6 +69,43 @@ levelLookup :: String -> BindingTree -> Maybe Template
 levelLookup e bindings = ellipsisFreeTemplate <$> (\(Value _ k) -> k) <$> find isSameIdentifier bindings
   where isSameIdentifier (Value (IdentifierAtom k) v) = k == e
         isSameIdentifier _ = False
+
+
+
+bindingLookup :: Integer -> String -> BindingTree -> Maybe [MetaNode]
+bindingLookup 0 identifier bindingTree
+  | Just (Value _ val) <- bindingOnSameLevel = Just [val]
+  | Nothing <- bindingOnSameLevel = Nothing
+  | otherwise = error "too many ellipses"
+  where bindingOnSameLevel = searchIdentifier identifier bindingTree
+bindingLookup 1 identifier bindingTree
+  | Just (IdentifierEllipsis _ values) <- bindingOnSameLevel = Just values
+  where bindingOnSameLevel = searchIdentifier identifier bindingTree
+bindingLookup remainingLevel identifier bindingTree
+  | Just (SubPatternEllipsis _ subPatterns) <- bindingOnSameLevel = concat <$> sequence (map (bindingLookup (remainingLevel - 1) identifier) subPatterns)
+  | Nothing <- bindingOnSameLevel = Nothing
+  | otherwise = error "not enough ellipses"
+  where bindingOnSameLevel = searchIdentifier identifier bindingTree
+
+searchIdentifier :: String -> BindingTree -> Maybe Binding
+searchIdentifier identifier bindingList
+  | [binding] <- results = Just binding
+  | (x:xs) <- results = error "ambigous pattern variable"
+  | otherwise = Nothing
+  where results = filter (hasIdentifier identifier) bindingList
+
+hasIdentifier :: String -> Binding -> Bool
+hasIdentifier str Empty = False
+hasIdentifier str (Value k v) = containsIdentifier str k
+hasIdentifier str (SubPatternEllipsis n _) = containsIdentifier str n
+hasIdentifier str (IdentifierEllipsis n _) = containsIdentifier str n
+
+containsIdentifier :: String -> MetaNode -> Bool
+containsIdentifier str (IdentifierAtom i) = str == i
+containsIdentifier str p@(PairNode _ _) = or . map (containsIdentifier str) $ makeList p
+containsIdentifier str a@(ApplicationNode _ _) = or . map (containsIdentifier str) $ makeList a
+-- todo if, define, set
+containsIdentifier _ _ = False
 
 parseSyntaxRules :: MetaNode -> SyntaxRules
 -- syntax-rules without ellipsis argument

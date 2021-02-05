@@ -200,3 +200,50 @@ spec =
 
       it "resolves double ellipsis" $ do
         analyseTemplateList ellipsis [IdentifierAtom "a", IdentifierAtom "...", IdentifierAtom "...", IdentifierAtom "b"] `shouldBe` [TemplateEllipsisNode (TemplateEllipsisNode (TemplateIdentifierAtom "a")), TemplateIdentifierAtom "b"]
+
+    describe "MacroEngine.lookup" $ do
+      it "looks up simple ellipse correctly" $ do
+        bindingLookup 1 "name" [SubPatternEllipsis 
+          (ApplicationNode (IdentifierAtom "name") [IdentifierAtom "value"])
+          [
+            [Value (IdentifierAtom "name") (StringAtom "rap"), Value (IdentifierAtom "value") (StringAtom "gru")],
+            [Value (IdentifierAtom "name") (StringAtom "gru"), Value (IdentifierAtom "value") (StringAtom "rap")]
+          ]]
+        `shouldBe`
+        Just [StringAtom "rap", StringAtom "gru"]
+      it "looks up double ellipse correctly" $ do
+        bindingLookup 2 "e" [SubPatternEllipsis 
+          (ApplicationNode (IdentifierAtom "e") [IdentifierAtom "..."])
+          [
+            [IdentifierEllipsis (IdentifierAtom "e") [StringAtom "a", StringAtom "b"]],
+            [IdentifierEllipsis (IdentifierAtom "e") [StringAtom "c", StringAtom "d"]]
+          ]]
+        `shouldBe`
+        Just [StringAtom "a", StringAtom "b", StringAtom "c", StringAtom "d"]
+      it "throws error when template has not enough ellipses" $ do
+        evaluate (bindingLookup 1 "e" [SubPatternEllipsis 
+          (ApplicationNode (IdentifierAtom "e") [IdentifierAtom "..."])
+          [
+            [IdentifierEllipsis (IdentifierAtom "e") [StringAtom "a", StringAtom "b"]],
+            [IdentifierEllipsis (IdentifierAtom "e") [StringAtom "c", StringAtom "d"]]
+          ]])
+        `shouldThrow`
+        anyErrorCall
+      it "throws error when template has too many ellipses" $ do
+        evaluate (bindingLookup 3 "e" [SubPatternEllipsis 
+          (ApplicationNode (IdentifierAtom "e") [IdentifierAtom "..."])
+          [
+            [IdentifierEllipsis (IdentifierAtom "e") [StringAtom "a", StringAtom "b"]],
+            [IdentifierEllipsis (IdentifierAtom "e") [StringAtom "c", StringAtom "d"]]
+          ]])
+        `shouldThrow`
+        anyErrorCall
+      it "returns Nothing if identifier is a free reference" $ do
+        bindingLookup 2 "free" [SubPatternEllipsis 
+          (ApplicationNode (IdentifierAtom "e") [IdentifierAtom "..."])
+          [
+            [IdentifierEllipsis (IdentifierAtom "e") [StringAtom "a", StringAtom "b"]],
+            [IdentifierEllipsis (IdentifierAtom "e") [StringAtom "c", StringAtom "d"]]
+          ]]
+        `shouldBe`
+        Nothing
