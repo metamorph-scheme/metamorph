@@ -237,7 +237,7 @@ annotateIdentifier (IdentifierAtom str scope) = resolveIdentifier' 0 0 0 scope w
                 Scope _ tb -> do
                     put tb
                     resolveIdentifier' parent (level+1) ignore (scope-1)
-                Global -> error "Internal Compiler Error: Invalid scope specified"
+                Global -> error $ "Unbound Symbol: Identifier " ++ str ++ " is not in scope"
         put entry
         return id
 
