@@ -21,7 +21,7 @@ data MetaNode' = BodyNode' Int [MetaNode'] -- Number of Bodyparams, only generat
     | BoolAtom' Bool 
     | CharAtom' Char
     | BaseFunctionAtom' String
-    | BaseSyntaxAtom' String
+    | BaseSyntaxAtom' String Int
     | SyntaxAtom' (MetaNode->MetaNode) Int
     | BoundAtom' Int Int -- Not literal
     | GlobalAtom' Int -- Not literal
@@ -52,7 +52,7 @@ instance Show MetaNode' where
     show (BoolAtom' b) = show b
     show (CharAtom' c) = show c
     show (BaseFunctionAtom' str) = "BaseFunction: " ++ show str 
-    show (BaseSyntaxAtom' str) = "BaseSyntax: " ++ show str
+    show (BaseSyntaxAtom' str _) = "BaseSyntax: " ++ show str
     show (SyntaxAtom' _ _) = "Syntax" 
     show (BoundAtom' n m) = "Bound" ++ show (n,m)
     show (GlobalAtom' n) = "Global(" ++ show n ++ ")"

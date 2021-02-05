@@ -2,12 +2,10 @@ module SemanticAnalysis.SemanticAnalysis (
     semanticAnalysis
 ) where
 
-import Parser.MetaNode
 import Control.Monad.State.Lazy
 import Common.Number
 import SemanticAnalysis.MetaNode'
 import Parser.MetaNode
-
 
 type AnalysisState = SymbolTable
 
@@ -22,7 +20,7 @@ makroengineLetrec = error "Makroengine not implemented"
 
 pushActivationEntries :: [String] -> State AnalysisState ()
 pushActivationEntries params = do
-    let newentries = (zip (filter (not . null) params) [0..])
+    let newentries = zip (filter (not . null) params) [0..]
     oldentries <- get
     put (Activation newentries oldentries)
 
@@ -54,7 +52,7 @@ pushDefines ((DefineNode (IdentifierAtom str 0) trg):ms) = do
             ms' <- pushDefines ms
             return $ SetNode (IdentifierAtom str 0) trg:ms'
         _ -> error "Internal Compiler Error: Incorrect Usage of pushDefines"
-pushDefines ((DefineNode _ _):ms) = error "Expected unused identifier as first argument of define"
+pushDefines ((DefineNode _ _):ms) = error "Expected unbound identifier as first argument of define"
 pushDefines (m:ms) = do
     ms' <- pushDefines ms
     return (m:ms')
@@ -68,7 +66,7 @@ pushDefineSyntax (definesyntax@(DefineSyntaxNode (IdentifierAtom str 0) _):ms) =
             put $ Syntax  (makroengineDefine definesyntax:entries) next
             pushDefineSyntax ms
         _ -> error "Internal Compiler Error: Incorrect Usage of pushDefineSyntax"
-pushDefineSyntax ((DefineSyntaxNode _ _):ms) =  error "Expected unused identifier as first argument of define-syntax"
+pushDefineSyntax ((DefineSyntaxNode _ _):ms) =  error "Expected unbound identifier as first argument of define-syntax"
 pushDefineSyntax (m:ms) = do
     ms' <- pushDefineSyntax ms
     return (m:ms')
@@ -96,8 +94,8 @@ annotateBody mn tail = do
             pushSyntaxEntries [] -- makro scopes will include beginning at syntax entries
             mn'' <- pushDefineSyntax mn'
             mn''' <- annotateList mn'' tail
-            popEntries -- Define Entries
             popEntries -- Syntax Entries
+            popEntries -- Define Entries
             return $ BodyNode' (length entries) mn'''
         _ -> error "Internal Compiler Error: Faulty symbol table"
 
@@ -139,29 +137,33 @@ annotateExpression (StringAtom cs) _ = return $ StringAtom' cs
 annotateExpression (BoolAtom b) _ = return $ BoolAtom' b
 annotateExpression (CharAtom c) _ = return $ CharAtom' c
 -- Internal defines OUTSIDE of a body have no meaning
-annotateExpression (DefineNode _ _) _ =  return $ BodyNode' 0 []
-annotateExpression (DefineSyntaxNode _ _) _ = return $ BodyNode' 0 []
+annotateExpression (DefineNode _ _) _ =  error "No define allowed in current context"
+annotateExpression (DefineSyntaxNode _ _) _ = error "No define-syntax allowed in current context"
 
 annotateLambda :: MetaNode -> State AnalysisState MetaNode'
-annotateLambda (LambdaNode (params) variadic exprs) = do
-    pushActivationEntries $ ((\(IdentifierAtom str 0) -> str) <$> (params ++ [variadic]))
+annotateLambda (LambdaNode params variadic exprs) = do
+    let names = unpackName' <$> (params ++ [variadic])
+    pushActivationEntries names
     body' <- annotateBody exprs True
     popEntries
     if (\(IdentifierAtom str 0) -> null str) variadic then
         return $ LambdaNode' (length params) False  body'
     else
         return $ LambdaNode' (length params) True body'
+    where
+        unpackName' :: MetaNode -> String
+        unpackName' (IdentifierAtom str 0)  = str
+        unpackName' (IdentifierAtom _ _)  = error "Expected unbound identifier as parameters of lambda"
 
 -- Makro params need to be annotated
 annotateApplication :: MetaNode -> Bool -> State AnalysisState MetaNode'
 annotateApplication (ApplicationNode mn params) tail = do
     mn' <- annotateExpression mn False
     case mn' of
-        (BaseSyntaxAtom' str) -> do
-            symtable <- get
-            put Global
+        (BaseSyntaxAtom' str level) -> do
+            pushScope level
             mn' <- annotateExpression (makroengineBase str (ApplicationNode mn params)) tail
-            put symtable
+            popEntries
             return mn'
         (SyntaxAtom' f level) -> do
             pushScope level
@@ -199,9 +201,15 @@ annotateIdentifier (IdentifierAtom str scope) = resolveIdentifier' 0 0 0 scope w
                 Scope n tb -> do
                     put tb
                     resolveIdentifier' parent (level+1) n 0
-                Global -> return $ resolveBaseIdentifier' str
+                Global -> return $ resolveBaseIdentifier'' str
         put entry
         return id
+        where
+            resolveBaseIdentifier'' :: String  -> MetaNode'
+            resolveBaseIdentifier'' str
+                | str `elem` schemeMakros = BaseSyntaxAtom' str level
+                | str `elem` schemeFunctions = BaseFunctionAtom' str
+                | otherwise = error $ "Unbound Symbol: Identifier " ++ str ++ " is not in scope"
     resolveIdentifier' parent level ignore 0 = do
         entry <- get
         id <- case entry of
@@ -232,11 +240,6 @@ annotateIdentifier (IdentifierAtom str scope) = resolveIdentifier' 0 0 0 scope w
                 Global -> error "Internal Compiler Error: Invalid scope specified"
         put entry
         return id
-    resolveBaseIdentifier' :: String  -> MetaNode'
-    resolveBaseIdentifier' str
-        | str `elem` schemeMakros = BaseSyntaxAtom' str
-        | str `elem` schemeFunctions = BaseFunctionAtom' str
-        | otherwise = error $ "Unbound Symbol: Identifier " ++ str ++ " is not in scope"
 
 annotateLetSyntax :: MetaNode -> Bool -> State AnalysisState MetaNode'
 annotateLetSyntax (LetSyntaxNode rules body) tail = do
@@ -244,6 +247,7 @@ annotateLetSyntax (LetSyntaxNode rules body) tail = do
     body' <- annotateBody body tail
     popEntries
     return body'
+
 annotateLetrecSyntax :: MetaNode -> Bool -> State AnalysisState MetaNode'
 annotateLetrecSyntax (LetrecSyntaxNode rules body) tail = do
     pushSyntaxEntries (makroengineLetrec rules)
