@@ -8,7 +8,7 @@ data MetaNode = LambdaNode [MetaNode] MetaNode [MetaNode]
     | StringAtom String 
     | BoolAtom Bool 
     | CharAtom Char 
-    | IdentifierAtom String -- Becomes Number Pair or Internal Enum
+    | IdentifierAtom String Int -- Becomes Number Pair or Internal Enum
     | ApplicationNode MetaNode [MetaNode] 
     | IfNode MetaNode MetaNode MetaNode 
     | SetNode MetaNode MetaNode 
