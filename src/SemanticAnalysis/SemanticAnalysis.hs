@@ -77,7 +77,7 @@ semanticAnalysis mn =
     evalState (annotateBody mn False) Global
 
 annotateBody :: [MetaNode] -> Bool -> State AnalysisState MetaNode'
-annotateBody mn tail = do
+annotateBody mn tailpos = do
     pushActivationEntries [] -- Activation entries need to be lower in the stack then syntax entries
     mn' <- pushDefines mn
     tb <- get
@@ -87,13 +87,13 @@ annotateBody mn tail = do
             popEntries -- bound numbers will not include empty body activation
             pushSyntaxEntries [] -- makro scopes will include beginning at syntax entries
             mn'' <- pushDefineSyntax mn'
-            mn''' <- annotateList mn'' tail
+            mn''' <- annotateList mn'' tailpos
             popEntries -- SyntaxEntries
             return $ BodyNode' 0 mn'''
         (Activation entries _) -> do
             pushSyntaxEntries [] -- makro scopes will include beginning at syntax entries
             mn'' <- pushDefineSyntax mn'
-            mn''' <- annotateList mn'' tail
+            mn''' <- annotateList mn'' tailpos
             popEntries -- Syntax Entries
             popEntries -- Define Entries
             return $ BodyNode' (length entries) mn'''
@@ -101,29 +101,29 @@ annotateBody mn tail = do
 
 annotateList :: [MetaNode] -> Bool -> State AnalysisState [MetaNode']
 annotateList [] _ = return []
-annotateList [e] tail = do
-    e' <- annotateExpression e tail
+annotateList [e] tailpos = do
+    e' <- annotateExpression e tailpos
     return [e']
-annotateList (e:es) tail = do
+annotateList (e:es) tailpos = do
     e' <- annotateExpression e False
-    es' <- annotateList es tail
+    es' <- annotateList es tailpos
     return $ e':es'
 
 annotateExpression :: MetaNode -> Bool -> State AnalysisState MetaNode'
 annotateExpression lambda@(LambdaNode _ _ _) _ = annotateLambda lambda
-annotateExpression application@(ApplicationNode _ _) tail = annotateApplication application tail
+annotateExpression application@(ApplicationNode _ _) tailpos = annotateApplication application tailpos
 annotateExpression identifier@(IdentifierAtom _ _) _ = annotateIdentifier identifier
-annotateExpression letsyntax@(LetSyntaxNode _ _ ) tail = annotateLetSyntax letsyntax tail
-annotateExpression letrecsyntax@(LetrecSyntaxNode _ _) tail = annotateLetrecSyntax letrecsyntax tail
+annotateExpression letsyntax@(LetSyntaxNode _ _ ) tailpos = annotateLetSyntax letsyntax tailpos
+annotateExpression letrecsyntax@(LetrecSyntaxNode _ _) tailpos = annotateLetrecSyntax letrecsyntax tailpos
 -- Recursive Trivial Annotations
 annotateExpression (PairNode car cdr) _ = do
     car' <- annotateExpression car False
     cdr' <- annotateExpression cdr False
     return $ PairNode' car' cdr'
-annotateExpression (IfNode ifexpr thenbr elsebr) tail = do
+annotateExpression (IfNode ifexpr thenbr elsebr) tailpos = do
     ifexpr' <- annotateExpression ifexpr False
-    thenbr' <- annotateExpression thenbr tail
-    elsebr' <- annotateExpression elsebr tail
+    thenbr' <- annotateExpression thenbr tailpos
+    elsebr' <- annotateExpression elsebr tailpos
     return $ IfNode' ifexpr' thenbr' elsebr'
 annotateExpression (SetNode src@(IdentifierAtom _ _) trg) _ = do
     src' <- annotateExpression src False
@@ -157,22 +157,22 @@ annotateLambda (LambdaNode params variadic exprs) = do
 
 -- Makro params need to be annotated
 annotateApplication :: MetaNode -> Bool -> State AnalysisState MetaNode'
-annotateApplication (ApplicationNode mn params) tail = do
+annotateApplication (ApplicationNode mn params) tailpos = do
     mn' <- annotateExpression mn False
     case mn' of
         (BaseSyntaxAtom' str level) -> do
             pushScope level
-            mn' <- annotateExpression (makroengineBase str (ApplicationNode mn params)) tail
+            mn' <- annotateExpression (makroengineBase str (ApplicationNode mn params)) tailpos
             popEntries
             return mn'
         (SyntaxAtom' f level) -> do
             pushScope level
-            mn' <- annotateExpression (f (ApplicationNode mn params)) tail
+            mn' <- annotateExpression (f (ApplicationNode mn params)) tailpos
             popEntries
             return mn'
         _ -> do
             params' <- annotateList params False
-            return $ ApplicationNode' tail mn' params'
+            return $ ApplicationNode' tailpos mn' params'
 
 annotateIdentifier :: MetaNode -> State AnalysisState MetaNode'
 annotateIdentifier (IdentifierAtom str scope) = resolveIdentifier' 0 0 0 scope where
@@ -242,15 +242,15 @@ annotateIdentifier (IdentifierAtom str scope) = resolveIdentifier' 0 0 0 scope w
         return id
 
 annotateLetSyntax :: MetaNode -> Bool -> State AnalysisState MetaNode'
-annotateLetSyntax (LetSyntaxNode rules body) tail = do
+annotateLetSyntax (LetSyntaxNode rules body) tailpos = do
     pushSyntaxEntries (makroengineLet rules)
-    body' <- annotateBody body tail
+    body' <- annotateBody body tailpos
     popEntries
     return body'
 
 annotateLetrecSyntax :: MetaNode -> Bool -> State AnalysisState MetaNode'
-annotateLetrecSyntax (LetrecSyntaxNode rules body) tail = do
+annotateLetrecSyntax (LetrecSyntaxNode rules body) tailpos = do
     pushSyntaxEntries (makroengineLetrec rules)
-    body' <- annotateBody body tail
+    body' <- annotateBody body tailpos
     popEntries
     return body'
