@@ -162,8 +162,50 @@ spec =
         evaluate (matchApplication Pattern{literals=[], ellipsis=ellipsis, patternNode=patterns} params) `shouldThrow` anyErrorCall
     
     describe "MacroEngine.transform" $ do
-      it "transform bindings one first level" $ do
-        transform [Value (IdentifierAtom "ident") (NumberAtom (Exact (Integer 3)))] (TemplateIdentifierAtom "ident") `shouldBe` (TemplateAtom (NumberAtom (Exact (Integer 3))))
+      it "transform bindings on root level" $ do
+        transform [Value (IdentifierAtom "ident") (NumberAtom (Exact (Integer 3)))] (TemplateIdentifierAtom [0] "ident") `shouldBe` (TemplateAtom (NumberAtom (Exact (Integer 3))))
+
+      it "transform subtemplate ellipsis" $ do
+        -- pattern (hansi (name value) ... a) / application (hansi (a b) (c d) matcha)
+        let bindingTree = [SubPatternEllipsis (ApplicationNode (IdentifierAtom "name") [IdentifierAtom "value"]) [[Value (IdentifierAtom "name") (IdentifierAtom "a"),Value (IdentifierAtom "value") (IdentifierAtom "b")],[Value (IdentifierAtom "name") (IdentifierAtom "c"),Value (IdentifierAtom "value") (IdentifierAtom "d")]],Value (IdentifierAtom "a") (IdentifierAtom "matcha")]
+        -- template (list (value name b a) ...)
+        let template = TemplateListNode [TemplateIdentifierAtom [1] "list",TemplateEllipsisNode 1 [0] (TemplateListNode [TemplateIdentifierAtom [0,3] "value",TemplateIdentifierAtom [0,2] "name",TemplateIdentifierAtom [0,1] "b",TemplateIdentifierAtom [0,0] "a"])]
+        -- result (list (b a b matcha) (d c b matcha))
+        transform bindingTree template `shouldBe` 
+          TemplateListNode [TemplateIdentifierAtom [1] "list",
+            TemplateListNode [
+              TemplateAtom (IdentifierAtom "b"),
+              TemplateAtom (IdentifierAtom "a"),
+              TemplateIdentifierAtom [0,1] "b",
+              TemplateAtom (IdentifierAtom "matcha")],
+            TemplateListNode [
+              TemplateAtom (IdentifierAtom "d"),
+              TemplateAtom (IdentifierAtom "c"),
+              TemplateIdentifierAtom [0,1] "b",
+              TemplateAtom (IdentifierAtom "matcha")]]
+
+      it "transform subtemplate ellipsis" $ do
+        -- pattern (hansi ((name ...) (value ...)) ...) / application (hansi ((1 2 3) (4 5 6)) ((3 2 1) (6 5 4)))
+        let bindingTree = [SubPatternEllipsis (ApplicationNode (ApplicationNode (IdentifierAtom "name") [IdentifierAtom "..."]) [ApplicationNode (IdentifierAtom "value") [IdentifierAtom "..."]]) [[IdentifierEllipsis (IdentifierAtom "name") [NumberAtom (Exact (Integer 1)),NumberAtom (Exact (Integer 2)),NumberAtom (Exact (Integer 3))],IdentifierEllipsis (IdentifierAtom "value") [NumberAtom (Exact (Integer 4)),NumberAtom (Exact (Integer 5)),NumberAtom (Exact (Integer 6))]],[IdentifierEllipsis (IdentifierAtom "name") [NumberAtom (Exact (Integer 3)),NumberAtom (Exact (Integer 2)),NumberAtom (Exact (Integer 1))],IdentifierEllipsis (IdentifierAtom "value") [NumberAtom (Exact (Integer 6)),NumberAtom (Exact (Integer 5)),NumberAtom (Exact (Integer 4))]]]]
+        -- template (list (list name ...) ...)
+        let template = TemplateListNode [TemplateIdentifierAtom [1] "list",TemplateEllipsisNode 1 [0] (TemplateListNode [TemplateIdentifierAtom [0,1] "list",TemplateEllipsisNode 1 [0,0] (TemplateIdentifierAtom [0,0] "name")])]
+        -- result (list (b a b matcha) (d c b matcha))
+        transform bindingTree template `shouldBe` 
+          TemplateListNode [
+            TemplateIdentifierAtom [1] "list",
+            TemplateListNode [
+              TemplateIdentifierAtom [0,1] "list",
+              TemplateAtom (NumberAtom (Exact (Integer 1)))
+              TemplateAtom (NumberAtom (Exact (Integer 2)))
+              TemplateAtom (NumberAtom (Exact (Integer 3)))
+            ],
+            TemplateListNode [
+              TemplateIdentifierAtom [0,1] "list",
+              TemplateAtom (NumberAtom (Exact (Integer 3)))
+              TemplateAtom (NumberAtom (Exact (Integer 2)))
+              TemplateAtom (NumberAtom (Exact (Integer 1)))
+            ]
+          ]
 
 
     describe "MacroEngine.applySyntaxRules" $ do
@@ -196,10 +238,10 @@ spec =
 
     describe "MacroEngine.analyseTemplateList" $ do
       it "resolves single ellipsis" $ do
-        analyseTemplateList ellipsis [IdentifierAtom "a", IdentifierAtom "...", IdentifierAtom "b"] `shouldBe` [TemplateEllipsisNode (TemplateIdentifierAtom "a"), TemplateIdentifierAtom "b"]
+        analyseTemplateList ellipsis [] [IdentifierAtom "a", IdentifierAtom "...", IdentifierAtom "b"] `shouldBe` [TemplateEllipsisNode 1 [1] (TemplateIdentifierAtom [1] "a"), TemplateIdentifierAtom [0] "b"]
 
       it "resolves double ellipsis" $ do
-        analyseTemplateList ellipsis [IdentifierAtom "a", IdentifierAtom "...", IdentifierAtom "...", IdentifierAtom "b"] `shouldBe` [TemplateEllipsisNode (TemplateEllipsisNode (TemplateIdentifierAtom "a")), TemplateIdentifierAtom "b"]
+        analyseTemplateList ellipsis [] [IdentifierAtom "a", IdentifierAtom "...", IdentifierAtom "...", IdentifierAtom "b"] `shouldBe` [TemplateEllipsisNode 2 [1] (TemplateIdentifierAtom [1] "a"), TemplateIdentifierAtom [0] "b"]
 
     describe "MacroEngine.lookup" $ do
       it "looks up simple ellipse correctly" $ do

@@ -4,8 +4,8 @@ import Parser.MetaNode
 
 data TemplateMetaNode = TemplateLambdaNode [TemplateMetaNode] TemplateMetaNode [TemplateMetaNode]
             | TemplateAtom MetaNode
-            | TemplateIdentifierAtom String 
-            | TemplateEllipsisNode TemplateMetaNode
+            | TemplateIdentifierAtom [Integer] String 
+            | TemplateEllipsisNode Integer [Integer] TemplateMetaNode
             | TemplateListNode [TemplateMetaNode] | TemplateImproperListNode [TemplateMetaNode] | TemplateIfNode TemplateMetaNode TemplateMetaNode TemplateMetaNode 
             | TemplateSetNode TemplateMetaNode TemplateMetaNode | TemplateDefineNode TemplateMetaNode TemplateMetaNode 
             deriving (Eq, Show)
