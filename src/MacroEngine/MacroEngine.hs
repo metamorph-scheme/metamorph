@@ -138,7 +138,7 @@ genericBindingLookup f 1 identifier bindingTree
   | Just (IdentifierEllipsis _ values) <- bindingOnSameLevel = Just values
   where bindingOnSameLevel = searchIdentifier identifier bindingTree
 genericBindingLookup f remainingLevel identifier bindingTree
-  | Just (SubPatternEllipsis _ subPatterns) <- bindingOnSameLevel = concat <$> sequence (map (bindingLookup (remainingLevel - 1) identifier) subPatterns)
+  | Just (SubPatternEllipsis _ subPatterns) <- bindingOnSameLevel = concat <$> sequence (map (genericBindingLookup f (remainingLevel - 1) identifier) subPatterns)
   | Nothing <- bindingOnSameLevel = Nothing
   | otherwise = f "not enough ellipses"
   where bindingOnSameLevel = searchIdentifier identifier bindingTree
@@ -243,6 +243,9 @@ replicateReplacementTable table = if length founds == 0
       foundList (_, _, (Found xs)) = xs
       allTheSame xs = and $ map (== head xs) (tail xs)
 
+-- resolving nested ellipsis
+-- only concat to level and supply an index to lookup
+
 nonErrorLookupLabels :: Integer -> BindingTree -> [([Integer], Template)] -> Maybe [([Integer], Template, ReplacementFlag)]
 nonErrorLookupLabels level bindingTree identifierTable = sequence . map lookup $ identifierTable
   where patternVariables = nub $ bindingTree >>= getPatternVariables
@@ -253,6 +256,7 @@ nonErrorLookupLabels level bindingTree identifierTable = sequence . map lookup $
             resolveEllipsis = case transformM bindingTree count node of
               Just resolved -> Just (path, e, Resolved resolved)
               -- not root level
+              -- do not fully concat 
               Nothing -> case transformM bindingTree (count + level) node of
                 Just resolved -> Just (path, e, Resolved resolved)
                 Nothing -> Nothing
