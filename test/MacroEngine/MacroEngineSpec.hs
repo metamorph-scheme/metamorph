@@ -229,7 +229,7 @@ spec =
               TemplateListNode [
                 TemplateIdentifierAtom [0,0,1] "a",
                 TemplateAtom (NumberAtom (Exact (Integer 3)))
-              ],
+              ]
             ],
             TemplateListNode [
               TemplateIdentifierAtom [0,1] "b",

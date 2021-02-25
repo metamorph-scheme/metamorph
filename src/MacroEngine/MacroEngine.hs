@@ -22,7 +22,9 @@ type Template = TemplateMetaNode
 data SyntaxRule = SyntaxRule Pattern Template
 type SyntaxRules = [SyntaxRule]
 
-type Transformer = MetaNode -> MetaNode
+-- flags for replacement algorithm
+data ReplacementFlag = Later | Found [Template] | Resolved [Template] | Outside deriving (Show)
+
 
 applySyntaxRules :: MetaNode -> MetaNode -> MetaNode
 applySyntaxRules = apply . parseSyntaxRules
@@ -30,141 +32,6 @@ applySyntaxRules = apply . parseSyntaxRules
 apply :: SyntaxRules -> MetaNode -> MetaNode
 apply rules application = renderTemplate . transform bindingTree $ template
   where (bindingTree, template) = head . catMaybes . map ((\(SyntaxRule pattern template) -> (\b -> (b,template)) <$> matchApplication pattern application)) $ rules
-
-renderTemplate :: Template -> MetaNode
-renderTemplate (TemplateListNode list) = ApplicationNode (renderTemplate (head list)) (map renderTemplate (tail list))
-renderTemplate (TemplateImproperListNode [a,b]) = PairNode (renderTemplate a) (renderTemplate b)
-renderTemplate (TemplateImproperListNode list) = PairNode (renderTemplate (head list)) (renderTemplate (TemplateImproperListNode (tail list)))
-renderTemplate (TemplateAtom atom) = atom
-renderTemplate (TemplateLambdaNode a b c) = LambdaNode (map renderTemplate a) (renderTemplate b) (map renderTemplate c)
-renderTemplate (TemplateIdentifierAtom _ identifierStr) = IdentifierAtom identifierStr
-renderTemplate (TemplateSetNode a b) = SetNode (renderTemplate a) (renderTemplate b)
-renderTemplate (TemplateDefineNode a b) = DefineNode (renderTemplate a) (renderTemplate b)
-
--- transform :: BindingTree -> Template -> Template
--- transform :: bindings -> template -> transformed template
--- transform = transformElliptic 0
-
-transformElliptic :: Integer -> BindingTree -> Template -> Template
---                                                                                                                                          |<- fix this shit, just here to compile
--- this need context from the parent
-transformElliptic level bindingTree identifier@(TemplateIdentifierAtom _ identifierString) = fromMaybe identifier (ellipsisFreeTemplate <$> head <$> bindingLookup level identifierString bindingTree) 
-transformElliptic level bindingTree (TemplateEllipsisNode count _ subTemplate) = transformElliptic (level+count) bindingTree subTemplate 
---transformElliptic level bindingTree (TemplateEllipsisNode subTemplate@(TemplateIdentifierAtom _)) = transformElliptic (level+1) bindingTree subTemplate 
---transformElliptic level bindingTree (TemplateEllipsisNode subTemplate@(TemplateEllipsisNode _)) = transformElliptic (level+1) bindingTree subTemplate 
---transformElliptic level bindingTree (TemplateEllipsisNode subTemplate@(TemplateIdentifierAtom _)) = transformElliptic (level+1) bindingTree subTemplate 
--- complex elliptic subpattern
--- adjust levels
--- search unique ellipsis subtree (normal case: identifiers in subtemplate are either free references or refer to the same subpatternellipsis
--- a special case is that pattern variables refer to different subpatternellipses, where the lenght of input parameters has to match)
--- identifiers and ellipses in the subtemplate can still refer to level 0
---transformElliptic level bindingTree (TemplateEllipsisNode subTemplate@(TemplateListNode _)) = transformElliptic (level+1) bindingTree subTemplate 
--- other template ellipsis nodes like numbers etc are invalid
-transformElliptic level bindingTree (TemplateListNode cdr) = TemplateListNode (map (transformElliptic level bindingTree) cdr)
-transformElliptic level bindingTree (TemplateImproperListNode cdr) = TemplateImproperListNode (map (transformElliptic level bindingTree) cdr)
--- todo <ellipsis> <template>
-transformElliptic _ _ atom = atom
-
--- package this algorithm + calls to bindingLookup for regular identifier ellipsises
--- returns transformed Maybe [MetaNode] for transform elliptic to patch into parent list
-
--- nonErrorLookup of every identifier in subtemplate with the correct level (initial level +1 for subpattern ellipsis + any other identifier ellipses in template)
-  -- only concat the lookup up to the level of the ellipsis itself
-  -- see (syntax-rules () ((bloat2 ((name ...) (value ...)) ...) (list (list name ... ) ...)))
-  -- for other subtemplate ellipsis
-    -- check if reference to root level or context of current subpattern
-    -- if yes then resolve with recursive call with level from root (only identifier ellipsis levels starting from zero)
-    -- if no then resolve with recursive call with context level + further ellipsises in subtemplate
-    -- to do this check just see if the respective recursive calls return Nothing, if both do, there is an error
--- if it is Just then it is a reference to a determining ellipsis -> append resulting [MetaNode] list to some "repeat list"
--- else try a errorLookup/bindingLookup without the ellipsis-level (only identifier ellipsis levels starting from zero)
-  -- immediately apply transformations found
--- check
-  -- all items of the "repeat list" must be of the same lenght
--- repeat the subtemplate for the lenght of the "repeat list" items and replace identifiers with the results from noErrorLookup
-
--- to identify the template to replace, just use the index of that element in the list
-
--- Template Parameter shall only be a TemplateIdentifierAtom or (Improper)List subtemplates
--- level is not the level of the parent but the level that applies for the contents of the subtemplate/the identifier itsself
--- ellipsisResolve :: Integer -> Template -> BindingTree -> Maybe [MetaNode]
--- ellipsisResolve level (TemplateIdentifierAtom identifierStr) bindingTree = bindingLookup level identifierStr bindingTree
--- ellipsisResolve level (TemplateListNode items) bindingTree = result
-  -- (transformed template, [(template, metanode list)])
-  -- where processSubTemplateElement processLevel indexList (TemplateIdentifierAtom ident) = nonErrorLookup level
-  --       processSubTemplateElement processLevel indexList (TemplateListNode list) = map (processSubTemplateElement processLevel) list 
-  --       processSubTemplateElement processLevel indexList (TemplateImproperListNode list) = map (processSubTemplateElement processLevel) list 
-  --       processSubTemplateElement processLevel indexList (TemplateEllipsisNode _ (TemplateListNode list)) = map (processSubTemplateElement processLevel) list 
-  --       processSubTemplateElement processLevel indexList(TemplateEllipsisNode _ (TemplateImproperListNode list)) = map (processSubTemplateElement processLevel) list 
-  --       processSubTemplateElement processLevel indexList(TemplateEllipsisNode _ other) = processSubTemplateElement (processLevel + 1) other
-  --       processSubTemplateElement processLevel indexList atom@(TemplateAtom _) = Just [atom]
-
--- subEllipsisLookup :: Integer -> 
-    
--- nonErrorLookup :: (Integer -> Bool) -> Integer -> String -> BindingTree -> Maybe [MetaNode]
--- nonErrorLookup shouldConcat = genericBindingLookup (\_ -> Nothing) shouldConcat
-
--- bindingLookup :: Integer -> String -> BindingTree -> Maybe [MetaNode]
--- bindingLookup = genericBindingLookup error (\_ -> True)
-
--- genericBindingLookup :: (String -> Maybe [MetaNode]) -> (Integer -> Bool) -> Integer -> String -> BindingTree -> Maybe [MetaNode]
--- genericBindingLookup f _ 0 identifier bindingTree
---   | Just (Value _ val) <- bindingOnSameLevel = Just [val]
---   | Nothing <- bindingOnSameLevel = Nothing
---   | otherwise = f "too many ellipses"
---   where bindingOnSameLevel = searchIdentifier identifier bindingTree
--- genericBindingLookup f _ 1 identifier bindingTree
---   | Just (IdentifierEllipsis _ values) <- bindingOnSameLevel = Just values
---   where bindingOnSameLevel = searchIdentifier identifier bindingTree
--- genericBindingLookup f shouldConcat remainingLevel identifier bindingTree
---   | Just (SubPatternEllipsis _ subPatterns) <- bindingOnSameLevel = (if (shouldConcat remainingLevel) then concat else id) <$> sequence (map (bindingLookup (remainingLevel - 1) identifier) subPatterns)
---   | Nothing <- bindingOnSameLevel = Nothing
---   | otherwise = f "not enough ellipses"
---   where bindingOnSameLevel = searchIdentifier identifier bindingTree
-
-nonErrorLookup :: Integer -> String -> BindingTree -> Maybe [MetaNode]
-nonErrorLookup = genericBindingLookup (\_ -> Nothing)
-
-bindingLookup :: Integer -> String -> BindingTree -> Maybe [MetaNode]
-bindingLookup = genericBindingLookup error
-
-genericBindingLookup :: (String -> Maybe [MetaNode]) -> Integer -> String -> BindingTree -> Maybe [MetaNode]
-genericBindingLookup f 0 identifier bindingTree
-  | Just (Value _ val) <- bindingOnSameLevel = Just [val]
-  | Nothing <- bindingOnSameLevel = Nothing
-  | otherwise = f "too many ellipses"
-  where bindingOnSameLevel = searchIdentifier identifier bindingTree
-genericBindingLookup f 1 identifier bindingTree
-  | Just (IdentifierEllipsis _ values) <- bindingOnSameLevel = Just values
-  where bindingOnSameLevel = searchIdentifier identifier bindingTree
-genericBindingLookup f remainingLevel identifier bindingTree
-  | Just (SubPatternEllipsis _ subPatterns) <- bindingOnSameLevel = concat <$> sequence (map (genericBindingLookup f (remainingLevel - 1) identifier) subPatterns)
-  | Nothing <- bindingOnSameLevel = Nothing
-  | otherwise = f "not enough ellipses"
-  where bindingOnSameLevel = searchIdentifier identifier bindingTree
-
-arbFromList :: [MetaNode] -> ArbList
-arbFromList nl = Nested (map Node nl)
-
-searchIdentifier :: String -> BindingTree -> Maybe Binding
-searchIdentifier identifier bindingList
-  | [binding] <- results = Just binding
-  | (x:xs) <- results = error "ambigous pattern variable"
-  | otherwise = Nothing
-  where results = filter (hasIdentifier identifier) bindingList
-
-hasIdentifier :: String -> Binding -> Bool
-hasIdentifier str Empty = False
-hasIdentifier str (Value k v) = containsIdentifier str k
-hasIdentifier str (SubPatternEllipsis n _) = containsIdentifier str n
-hasIdentifier str (IdentifierEllipsis n _) = containsIdentifier str n
-
-containsIdentifier :: String -> MetaNode -> Bool
-containsIdentifier str (IdentifierAtom i) = str == i
-containsIdentifier str p@(PairNode _ _) = or . map (containsIdentifier str) $ makeList p
-containsIdentifier str a@(ApplicationNode _ _) = or . map (containsIdentifier str) $ makeList a
--- todo if, define, set
-containsIdentifier _ _ = False
 
 parseSyntaxRules :: MetaNode -> SyntaxRules
 -- syntax-rules without ellipsis argument
@@ -189,15 +56,46 @@ parseSyntaxRule ellipsis literals (ApplicationNode patternNode [template]) =
   SyntaxRule Pattern{ellipsis=ellipsis, literals=literals, patternNode=patternNode} (analyseTemplate ellipsis [] template)
 parseSyntaxRule _ _ _ = error "invalid syntax-rule syntax"
 
-data ReplacementFlag = Later | Found [Template] | Resolved [Template] | Outside deriving (Show)
-data ArbList = Nested [ArbList] | Node MetaNode 
-
 -- index -1 so that the indentifiers on root level do not yield Found replacement flags
 transform :: BindingTree -> Template -> Template
 transform bindingTree template = case transformM bindingTree 0 template of
   Just [result] -> result
   _ -> error "cannot transform template"
 
+-- *** Transformation Algorithm ***
+
+-- package this algorithm + calls to bindingLookup for regular identifier ellipsises
+-- returns transformed Maybe [MetaNode] for transform elliptic to patch into parent list
+
+-- nonErrorLookup of every identifier in subtemplate with the correct level (initial level +1 for subpattern ellipsis + any other identifier ellipses in template)
+  -- only concat the lookup up to the level of the ellipsis itself
+  -- see (syntax-rules () ((bloat2 ((name ...) (value ...)) ...) (list (list name ... ) ...)))
+  -- for other subtemplate ellipsis
+    -- check if reference to root level or context of current subpattern
+    -- if yes then resolve with recursive call with level from root (only identifier ellipsis levels starting from zero)
+    -- if no then resolve with recursive call with context level + further ellipsises in subtemplate
+    -- to do this check just see if the respective recursive calls return Nothing, if both do, there is an error
+-- if it is Just then it is a reference to a determining ellipsis -> append resulting [MetaNode] list to some "repeat list"
+-- else try a errorLookup/bindingLookup without the ellipsis-level (only identifier ellipsis levels starting from zero)
+  -- immediately apply transformations found
+-- check
+  -- all items of the "repeat list" must be of the same lenght
+-- repeat the subtemplate for the lenght of the "repeat list" items and replace identifiers with the results from noErrorLookup
+
+-- to identify the template to replace, just use the index of that element in the list
+
+
+-- prerequisite of the algorithm is that the Template Datatype contains a unique path for every identifier in the template
+-- it then builds a map construct of all paths and their respective identifier nodes
+-- with the function nonErrorLookupLabel this map is expanded into a replacement table, so it is now a list of 3-tuples carrying an additional
+-- replacement flag. This flag can be Resolved for fully transformed MetaNode results (like root-level references),
+-- Outside for outside references and Found. Found is a special flag that symbolises the need for replication in subtemplate ellipsises
+-- After building the replacement table, the replace function applies the replacement table onto the given raw template. In doing so
+-- it guarantees that all Replacements with the flag Found have the same lenght and that subtemplates are replicated as needed with
+-- the index of the element taken from the Found flag increasing by one for each iteration.
+
+-- transformM combines the building of a replacement table and the actual replacement process
+-- transform calls the generic transformM with ellipsis level 0 for root level templates
 
 transformM :: BindingTree -> Integer -> Template -> Maybe [Template]
 transformM bindingTree level template = (\rt->replace rt template) <$> replicateReplacementTable <$> (nonErrorLookupLabels level bindingTree identifierTable)
@@ -281,6 +179,61 @@ identifierLabelTable ident@(TemplateIdentifierAtom path _) = [(path, ident)]
 identifierLabelTable ellipsis@(TemplateEllipsisNode count path _) = [(path, ellipsis)]
 identifierLabelTable _ = []
 
+-- Lookups in BindingTree
+
+nonErrorLookup :: Integer -> String -> BindingTree -> Maybe [MetaNode]
+nonErrorLookup = genericBindingLookup (\_ -> Nothing)
+
+bindingLookup :: Integer -> String -> BindingTree -> Maybe [MetaNode]
+bindingLookup = genericBindingLookup error
+
+genericBindingLookup :: (String -> Maybe [MetaNode]) -> Integer -> String -> BindingTree -> Maybe [MetaNode]
+genericBindingLookup f 0 identifier bindingTree
+  | Just (Value _ val) <- bindingOnSameLevel = Just [val]
+  | Nothing <- bindingOnSameLevel = Nothing
+  | otherwise = f "too many ellipses"
+  where bindingOnSameLevel = searchIdentifier identifier bindingTree
+genericBindingLookup f 1 identifier bindingTree
+  | Just (IdentifierEllipsis _ values) <- bindingOnSameLevel = Just values
+  where bindingOnSameLevel = searchIdentifier identifier bindingTree
+genericBindingLookup f remainingLevel identifier bindingTree
+  | Just (SubPatternEllipsis _ subPatterns) <- bindingOnSameLevel = concat <$> sequence (map (genericBindingLookup f (remainingLevel - 1) identifier) subPatterns)
+  | Nothing <- bindingOnSameLevel = Nothing
+  | otherwise = f "not enough ellipses"
+  where bindingOnSameLevel = searchIdentifier identifier bindingTree
+
+searchIdentifier :: String -> BindingTree -> Maybe Binding
+searchIdentifier identifier bindingList
+  | [binding] <- results = Just binding
+  | (x:xs) <- results = error "ambigous pattern variable"
+  | otherwise = Nothing
+  where results = filter (hasIdentifier identifier) bindingList
+
+hasIdentifier :: String -> Binding -> Bool
+hasIdentifier str Empty = False
+hasIdentifier str (Value k v) = containsIdentifier str k
+hasIdentifier str (SubPatternEllipsis n _) = containsIdentifier str n
+hasIdentifier str (IdentifierEllipsis n _) = containsIdentifier str n
+
+containsIdentifier :: String -> MetaNode -> Bool
+containsIdentifier str (IdentifierAtom i) = str == i
+containsIdentifier str p@(PairNode _ _) = or . map (containsIdentifier str) $ makeList p
+containsIdentifier str a@(ApplicationNode _ _) = or . map (containsIdentifier str) $ makeList a
+-- todo if, define, set
+containsIdentifier _ _ = False
+
+-- *** MetaNode/Template Conversion ***
+
+renderTemplate :: Template -> MetaNode
+renderTemplate (TemplateListNode list) = ApplicationNode (renderTemplate (head list)) (map renderTemplate (tail list))
+renderTemplate (TemplateImproperListNode [a,b]) = PairNode (renderTemplate a) (renderTemplate b)
+renderTemplate (TemplateImproperListNode list) = PairNode (renderTemplate (head list)) (renderTemplate (TemplateImproperListNode (tail list)))
+renderTemplate (TemplateAtom atom) = atom
+renderTemplate (TemplateLambdaNode a b c) = LambdaNode (map renderTemplate a) (renderTemplate b) (map renderTemplate c)
+renderTemplate (TemplateIdentifierAtom _ identifierStr) = IdentifierAtom identifierStr
+renderTemplate (TemplateSetNode a b) = SetNode (renderTemplate a) (renderTemplate b)
+renderTemplate (TemplateDefineNode a b) = DefineNode (renderTemplate a) (renderTemplate b)
+
 analyseTemplate :: Ellipsis -> [Integer] -> MetaNode -> Template
 analyseTemplate ellipsis path a@(ApplicationNode _ _) = TemplateListNode (analyseTemplateList ellipsis path (makeList a))
 analyseTemplate ellipsis path p@(PairNode _ _) = TemplateImproperListNode (analyseTemplateList ellipsis path (makeList p))
@@ -295,19 +248,6 @@ analyseTemplate _ path (IdentifierAtom a) = TemplateIdentifierAtom path a
 analyseTemplate ellipsis path (SetNode a b) = TemplateSetNode (analyseTemplate ellipsis path a) (analyseTemplate ellipsis path b)
 analyseTemplate ellipsis path (DefineNode a b) = TemplateDefineNode (analyseTemplate ellipsis path a) (analyseTemplate ellipsis path b)
 
-ellipsisFreeTemplate :: MetaNode -> Template
-ellipsisFreeTemplate a@(ApplicationNode _ _) = TemplateListNode (map ellipsisFreeTemplate (makeList a))
-ellipsisFreeTemplate p@(PairNode _ _) = TemplateImproperListNode (map ellipsisFreeTemplate (makeList p))
-ellipsisFreeTemplate (LambdaNode a b c) = TemplateLambdaNode (map ellipsisFreeTemplate a) (ellipsisFreeTemplate b) (map ellipsisFreeTemplate c)
-ellipsisFreeTemplate atom@(NumberAtom a) = TemplateAtom atom
-ellipsisFreeTemplate atom@(EmptyAtom) = TemplateAtom atom
-ellipsisFreeTemplate atom@(StringAtom a) = TemplateAtom atom
-ellipsisFreeTemplate atom@(BoolAtom a) = TemplateAtom atom
-ellipsisFreeTemplate atom@(CharAtom a) = TemplateAtom atom
-ellipsisFreeTemplate (IdentifierAtom a) = TemplateIdentifierAtom [] a
-ellipsisFreeTemplate (SetNode a b) = TemplateSetNode (ellipsisFreeTemplate a) (ellipsisFreeTemplate b)
-ellipsisFreeTemplate (DefineNode a b) = TemplateDefineNode (ellipsisFreeTemplate a) (ellipsisFreeTemplate b)
-
 analyseTemplateList :: Ellipsis -> [Integer] ->[MetaNode] -> [Template]
 analyseTemplateList ellipsis path nodeList = (\(a, _, _) -> a) . foldr (wrapOnEllipsis ellipsis path) ([],0, 0) $ nodeList
 
@@ -318,6 +258,8 @@ wrapOnEllipsis ellipsis path metaNode (nl, wrapCount, index)
   where
     wrap node 0 = analyseTemplate ellipsis (path ++ [index]) node
     wrap node count = TemplateEllipsisNode count (path ++ [index]) (wrap node 0)
+
+-- *** Pattern Matching ***
 
 -- verify if macro call matches a pattern
 matchApplication :: Pattern -> MetaNode -> Maybe BindingTree
