@@ -75,6 +75,9 @@ parseSyntax = do
         QuasiQuote -> parseQuasiQuote
         If -> parseIf
         Set -> parseSet
+        PClose -> do
+            pullEq "PClose" PClose
+            return EmptyAtom
         DefineSyntax -> parseDefineSyntax
         LetSyntax -> parseLetSyntax
         LetrecSyntax -> parseLetrecSyntax

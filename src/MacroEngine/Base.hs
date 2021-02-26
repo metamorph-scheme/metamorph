@@ -1,0 +1,29 @@
+module MacroEngine.Base ( baseSyntax ) where
+
+import qualified Data.Map as M
+import Parser.MetaNode
+
+baseSyntax :: M.Map String MetaNode
+baseSyntax =
+  M.fromList [
+    ("let", letMacro),
+    ("let*", letStarMacro),
+    ("letrec", letrecMacro),
+    ("and", andMacro),
+    ("or", orMacro)
+  ]
+
+letMacro :: MetaNode
+letMacro = ApplicationNode (IdentifierAtom "syntax-rules" 0) [EmptyAtom,ApplicationNode (ApplicationNode (IdentifierAtom "let" 0) [ApplicationNode (ApplicationNode (IdentifierAtom "name" 0) [IdentifierAtom "val" 0]) [IdentifierAtom "..." 0],IdentifierAtom "body1" 0,IdentifierAtom "body2" 0,IdentifierAtom "..." 0]) [ApplicationNode (LambdaNode [IdentifierAtom "name" 0,IdentifierAtom "..." 0] (IdentifierAtom "" 0) [IdentifierAtom "body1" 0,IdentifierAtom "body2" 0,IdentifierAtom "..." 0]) [IdentifierAtom "val" 0,IdentifierAtom "..." 0]],ApplicationNode (ApplicationNode (IdentifierAtom "let" 0) [IdentifierAtom "tag" 0,ApplicationNode (ApplicationNode (IdentifierAtom "name" 0) [IdentifierAtom "val" 0]) [IdentifierAtom "..." 0],IdentifierAtom "body1" 0,IdentifierAtom "body2" 0,IdentifierAtom "..." 0]) [ApplicationNode (ApplicationNode (IdentifierAtom "letrec" 0) [ApplicationNode (ApplicationNode (IdentifierAtom "tag" 0) [LambdaNode [IdentifierAtom "name" 0,IdentifierAtom "..." 0] (IdentifierAtom "" 0) [IdentifierAtom "body1" 0,IdentifierAtom "body2" 0,IdentifierAtom "..." 0]]) [],IdentifierAtom "tag" 0]) [IdentifierAtom "val" 0,IdentifierAtom "..." 0]]]
+
+letStarMacro :: MetaNode
+letStarMacro = ApplicationNode (IdentifierAtom "syntax-rules" 0) [EmptyAtom,ApplicationNode (ApplicationNode (IdentifierAtom "let*" 0) [EmptyAtom,IdentifierAtom "body1" 0,IdentifierAtom "body2" 0,IdentifierAtom "..." 0]) [ApplicationNode (IdentifierAtom "let" 0) [EmptyAtom,IdentifierAtom "body1" 0,IdentifierAtom "body2" 0,IdentifierAtom "..." 0]],ApplicationNode (ApplicationNode (IdentifierAtom "let*" 0) [ApplicationNode (ApplicationNode (IdentifierAtom "name1" 0) [IdentifierAtom "val1" 0]) [ApplicationNode (IdentifierAtom "name2" 0) [IdentifierAtom "val2" 0],IdentifierAtom "..." 0],IdentifierAtom "body1" 0,IdentifierAtom "body2" 0,IdentifierAtom "..." 0]) [ApplicationNode (IdentifierAtom "let" 0) [ApplicationNode (ApplicationNode (IdentifierAtom "name1" 0) [IdentifierAtom "val1" 0]) [],ApplicationNode (IdentifierAtom "let*" 0) [ApplicationNode (ApplicationNode (IdentifierAtom "name2" 0) [IdentifierAtom "val2" 0]) [IdentifierAtom "..." 0],IdentifierAtom "body1" 0,IdentifierAtom "body2" 0,IdentifierAtom "..." 0]]]]
+
+letrecMacro :: MetaNode
+letrecMacro = ApplicationNode (IdentifierAtom "syntax-rules" 0) [EmptyAtom,ApplicationNode (ApplicationNode (IdentifierAtom "letrec" 0) [ApplicationNode (ApplicationNode (IdentifierAtom "var1" 0) [IdentifierAtom "init1" 0]) [IdentifierAtom "..." 0],IdentifierAtom "body" 0,IdentifierAtom "..." 0]) [ApplicationNode (IdentifierAtom "letrec" 0) [StringAtom "generatetempnames",ApplicationNode (IdentifierAtom "var1" 0) [IdentifierAtom "..." 0],EmptyAtom,ApplicationNode (ApplicationNode (IdentifierAtom "var1" 0) [IdentifierAtom "init1" 0]) [IdentifierAtom "..." 0],IdentifierAtom "body" 0,IdentifierAtom "..." 0]],ApplicationNode (ApplicationNode (IdentifierAtom "letrec" 0) [StringAtom "generatetempnames",EmptyAtom,ApplicationNode (IdentifierAtom "temp1" 0) [IdentifierAtom "..." 0],ApplicationNode (ApplicationNode (IdentifierAtom "var1" 0) [IdentifierAtom "init1" 0]) [IdentifierAtom "..." 0],IdentifierAtom "body" 0,IdentifierAtom "..." 0]) [ApplicationNode (IdentifierAtom "let" 0) [ApplicationNode (ApplicationNode (IdentifierAtom "var1" 0) [IdentifierAtom "<undefined>" 0]) [IdentifierAtom "..." 0],ApplicationNode (IdentifierAtom "let" 0) [ApplicationNode (ApplicationNode (IdentifierAtom "temp1" 0) [IdentifierAtom "init1" 0]) [IdentifierAtom "..." 0],SetNode (IdentifierAtom "var1" 0) (IdentifierAtom "temp1" 0),IdentifierAtom "...body" 0,IdentifierAtom "..." 0]]],ApplicationNode (ApplicationNode (IdentifierAtom "letrec" 0) [StringAtom "generatetempnames",ApplicationNode (IdentifierAtom "x" 0) [IdentifierAtom "y" 0,IdentifierAtom "..." 0],ApplicationNode (IdentifierAtom "temp" 0) [IdentifierAtom "..." 0],ApplicationNode (ApplicationNode (IdentifierAtom "var1" 0) [IdentifierAtom "init1" 0]) [IdentifierAtom "..." 0],IdentifierAtom "body" 0,IdentifierAtom "..." 0]) [ApplicationNode (IdentifierAtom "letrec" 0) [StringAtom "generatetempnames",ApplicationNode (IdentifierAtom "y" 0) [IdentifierAtom "..." 0],ApplicationNode (IdentifierAtom "newtemp" 0) [IdentifierAtom "temp" 0,IdentifierAtom "..." 0],ApplicationNode (ApplicationNode (IdentifierAtom "var1" 0) [IdentifierAtom "init1" 0]) [IdentifierAtom "..." 0],IdentifierAtom "body" 0,IdentifierAtom "..." 0]]]
+
+andMacro :: MetaNode
+andMacro = ApplicationNode (IdentifierAtom "syntax-rules" 0) [EmptyAtom,ApplicationNode (ApplicationNode (IdentifierAtom "and" 0) []) [BoolAtom True],ApplicationNode (ApplicationNode (IdentifierAtom "and" 0) [IdentifierAtom "test" 0]) [IdentifierAtom "test" 0],ApplicationNode (ApplicationNode (IdentifierAtom "and" 0) [IdentifierAtom "test1" 0,IdentifierAtom "test2" 0,IdentifierAtom "..." 0]) [IfNode (IdentifierAtom "test1" 0) (ApplicationNode (IdentifierAtom "and" 0) [IdentifierAtom "test2" 0,IdentifierAtom "..." 0]) (BoolAtom False)]]
+
+orMacro :: MetaNode
+orMacro = ApplicationNode (IdentifierAtom "syntax-rules" 0) [EmptyAtom,ApplicationNode (ApplicationNode (IdentifierAtom "and" 0) []) [BoolAtom True],ApplicationNode (ApplicationNode (IdentifierAtom "and" 0) [IdentifierAtom "test" 0]) [IdentifierAtom "test" 0],ApplicationNode (ApplicationNode (IdentifierAtom "and" 0) [IdentifierAtom "test1" 0,IdentifierAtom "test2" 0,IdentifierAtom "..." 0]) [IfNode (IdentifierAtom "test1" 0) (ApplicationNode (IdentifierAtom "and" 0) [IdentifierAtom "test2" 0,IdentifierAtom "..." 0]) (BoolAtom False)]]
