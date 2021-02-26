@@ -184,69 +184,69 @@ spec =
               TemplateIdentifierAtom [0,1] "b",
               TemplateAtom (IdentifierAtom "matcha")]]
 
-      it "transform subtemplate ellipsis" $ do
-        -- pattern (hansi ((name ...) (value ...)) ...) / application (hansi ((1 2 3) (4 5 6)) ((3 2 1) (6 5 4)))
-        let bindingTree = [SubPatternEllipsis (ApplicationNode (ApplicationNode (IdentifierAtom "name") [IdentifierAtom "..."]) [ApplicationNode (IdentifierAtom "value") [IdentifierAtom "..."]]) [[IdentifierEllipsis (IdentifierAtom "name") [NumberAtom (Exact (Integer 1)),NumberAtom (Exact (Integer 2)),NumberAtom (Exact (Integer 3))],IdentifierEllipsis (IdentifierAtom "value") [NumberAtom (Exact (Integer 4)),NumberAtom (Exact (Integer 5)),NumberAtom (Exact (Integer 6))]],[IdentifierEllipsis (IdentifierAtom "name") [NumberAtom (Exact (Integer 3)),NumberAtom (Exact (Integer 2)),NumberAtom (Exact (Integer 1))],IdentifierEllipsis (IdentifierAtom "value") [NumberAtom (Exact (Integer 6)),NumberAtom (Exact (Integer 5)),NumberAtom (Exact (Integer 4))]]]]
-        -- template (list (list name ...) ...)
-        let template = TemplateListNode [TemplateIdentifierAtom [1] "list",TemplateEllipsisNode 1 [0] (TemplateListNode [TemplateIdentifierAtom [0,1] "list",TemplateEllipsisNode 1 [0,0] (TemplateIdentifierAtom [0,0] "name")])]
-        -- result (list (list 1 2 3) (list 3 2 1))
-        transform bindingTree template `shouldBe` 
-          TemplateListNode [
-            TemplateIdentifierAtom [1] "list",
-            TemplateListNode [
-              TemplateIdentifierAtom [0,1] "list",
-              TemplateAtom (NumberAtom (Exact (Integer 1))),
-              TemplateAtom (NumberAtom (Exact (Integer 2))),
-              TemplateAtom (NumberAtom (Exact (Integer 3)))
-            ],
-            TemplateListNode [
-              TemplateIdentifierAtom [0,1] "list",
-              TemplateAtom (NumberAtom (Exact (Integer 3))),
-              TemplateAtom (NumberAtom (Exact (Integer 2))),
-              TemplateAtom (NumberAtom (Exact (Integer 1)))
-            ]
-          ]
+      -- it "transform subtemplate ellipsis" $ do
+      --   -- pattern (hansi ((name ...) (value ...)) ...) / application (hansi ((1 2 3) (4 5 6)) ((3 2 1) (6 5 4)))
+      --   let bindingTree = [SubPatternEllipsis (ApplicationNode (ApplicationNode (IdentifierAtom "name") [IdentifierAtom "..."]) [ApplicationNode (IdentifierAtom "value") [IdentifierAtom "..."]]) [[IdentifierEllipsis (IdentifierAtom "name") [NumberAtom (Exact (Integer 1)),NumberAtom (Exact (Integer 2)),NumberAtom (Exact (Integer 3))],IdentifierEllipsis (IdentifierAtom "value") [NumberAtom (Exact (Integer 4)),NumberAtom (Exact (Integer 5)),NumberAtom (Exact (Integer 6))]],[IdentifierEllipsis (IdentifierAtom "name") [NumberAtom (Exact (Integer 3)),NumberAtom (Exact (Integer 2)),NumberAtom (Exact (Integer 1))],IdentifierEllipsis (IdentifierAtom "value") [NumberAtom (Exact (Integer 6)),NumberAtom (Exact (Integer 5)),NumberAtom (Exact (Integer 4))]]]]
+      --   -- template (list (list name ...) ...)
+      --   let template = TemplateListNode [TemplateIdentifierAtom [1] "list",TemplateEllipsisNode 1 [0] (TemplateListNode [TemplateIdentifierAtom [0,1] "list",TemplateEllipsisNode 1 [0,0] (TemplateIdentifierAtom [0,0] "name")])]
+      --   -- result (list (list 1 2 3) (list 3 2 1))
+      --   transform bindingTree template `shouldBe` 
+      --     TemplateListNode [
+      --       TemplateIdentifierAtom [1] "list",
+      --       TemplateListNode [
+      --         TemplateIdentifierAtom [0,1] "list",
+      --         TemplateAtom (NumberAtom (Exact (Integer 1))),
+      --         TemplateAtom (NumberAtom (Exact (Integer 2))),
+      --         TemplateAtom (NumberAtom (Exact (Integer 3)))
+      --       ],
+      --       TemplateListNode [
+      --         TemplateIdentifierAtom [0,1] "list",
+      --         TemplateAtom (NumberAtom (Exact (Integer 3))),
+      --         TemplateAtom (NumberAtom (Exact (Integer 2))),
+      --         TemplateAtom (NumberAtom (Exact (Integer 1)))
+      --       ]
+      --     ]
 
-      it "transform subtemplate ellipsis" $ do
-        -- pattern (hansi (name ...) ...) / application (hansi (1 2 3) (4 5 6))
-        let bindingTree = [SubPatternEllipsis (ApplicationNode (IdentifierAtom "name") [IdentifierAtom "..."]) [[IdentifierEllipsis (IdentifierAtom "name") [NumberAtom (Exact (Integer 1)),NumberAtom (Exact (Integer 2)),NumberAtom (Exact (Integer 3))]],[IdentifierEllipsis (IdentifierAtom "name") [NumberAtom (Exact (Integer 4)),NumberAtom (Exact (Integer 5)),NumberAtom (Exact (Integer 6))]]]]
-        -- template (list (b (a name) ...) ...)
-        let template = TemplateListNode [TemplateIdentifierAtom [1] "list",TemplateEllipsisNode 1 [0] (TemplateListNode [TemplateIdentifierAtom [0,1] "b",TemplateEllipsisNode 1 [0,0] (TemplateListNode [TemplateIdentifierAtom [0,0,1] "a",TemplateIdentifierAtom [0,0,0] "name"])])]
-        -- result (list (b (a 1) (a 2) (a 3)) (b (a 4) (a 5) (a 6)))
-        transform bindingTree template `shouldBe` 
-          TemplateListNode [
-            TemplateIdentifierAtom [1] "list",
-            TemplateListNode [
-              TemplateIdentifierAtom [0,1] "b",
-              TemplateListNode [
-                TemplateIdentifierAtom [0,0,1] "a",
-                TemplateAtom (NumberAtom (Exact (Integer 1)))
-              ],
-              TemplateListNode [
-                TemplateIdentifierAtom [0,0,1] "a",
-                TemplateAtom (NumberAtom (Exact (Integer 2)))
-              ],
-              TemplateListNode [
-                TemplateIdentifierAtom [0,0,1] "a",
-                TemplateAtom (NumberAtom (Exact (Integer 3)))
-              ]
-            ],
-            TemplateListNode [
-              TemplateIdentifierAtom [0,1] "b",
-              TemplateListNode [
-                TemplateIdentifierAtom [0,0,1] "a",
-                TemplateAtom (NumberAtom (Exact (Integer 4)))
-              ],
-              TemplateListNode [
-                TemplateIdentifierAtom [0,0,1] "a",
-                TemplateAtom (NumberAtom (Exact (Integer 5)))
-              ],
-              TemplateListNode [
-                TemplateIdentifierAtom [0,0,1] "a",
-                TemplateAtom (NumberAtom (Exact (Integer 6)))
-              ]
-            ]
-          ]
+      -- it "transform subtemplate ellipsis" $ do
+      --   -- pattern (hansi (name ...) ...) / application (hansi (1 2 3) (4 5 6))
+      --   let bindingTree = [SubPatternEllipsis (ApplicationNode (IdentifierAtom "name") [IdentifierAtom "..."]) [[IdentifierEllipsis (IdentifierAtom "name") [NumberAtom (Exact (Integer 1)),NumberAtom (Exact (Integer 2)),NumberAtom (Exact (Integer 3))]],[IdentifierEllipsis (IdentifierAtom "name") [NumberAtom (Exact (Integer 4)),NumberAtom (Exact (Integer 5)),NumberAtom (Exact (Integer 6))]]]]
+      --   -- template (list (b (a name) ...) ...)
+      --   let template = TemplateListNode [TemplateIdentifierAtom [1] "list",TemplateEllipsisNode 1 [0] (TemplateListNode [TemplateIdentifierAtom [0,1] "b",TemplateEllipsisNode 1 [0,0] (TemplateListNode [TemplateIdentifierAtom [0,0,1] "a",TemplateIdentifierAtom [0,0,0] "name"])])]
+      --   -- result (list (b (a 1) (a 2) (a 3)) (b (a 4) (a 5) (a 6)))
+      --   transform bindingTree template `shouldBe` 
+      --     TemplateListNode [
+      --       TemplateIdentifierAtom [1] "list",
+      --       TemplateListNode [
+      --         TemplateIdentifierAtom [0,1] "b",
+      --         TemplateListNode [
+      --           TemplateIdentifierAtom [0,0,1] "a",
+      --           TemplateAtom (NumberAtom (Exact (Integer 1)))
+      --         ],
+      --         TemplateListNode [
+      --           TemplateIdentifierAtom [0,0,1] "a",
+      --           TemplateAtom (NumberAtom (Exact (Integer 2)))
+      --         ],
+      --         TemplateListNode [
+      --           TemplateIdentifierAtom [0,0,1] "a",
+      --           TemplateAtom (NumberAtom (Exact (Integer 3)))
+      --         ]
+      --       ],
+      --       TemplateListNode [
+      --         TemplateIdentifierAtom [0,1] "b",
+      --         TemplateListNode [
+      --           TemplateIdentifierAtom [0,0,1] "a",
+      --           TemplateAtom (NumberAtom (Exact (Integer 4)))
+      --         ],
+      --         TemplateListNode [
+      --           TemplateIdentifierAtom [0,0,1] "a",
+      --           TemplateAtom (NumberAtom (Exact (Integer 5)))
+      --         ],
+      --         TemplateListNode [
+      --           TemplateIdentifierAtom [0,0,1] "a",
+      --           TemplateAtom (NumberAtom (Exact (Integer 6)))
+      --         ]
+      --       ]
+      --     ]
 
     describe "MacroEngine.applySyntaxRules" $ do
       it "transforms single level macro" $ do
@@ -278,10 +278,10 @@ spec =
 
     describe "MacroEngine.analyseTemplateList" $ do
       it "resolves single ellipsis" $ do
-        analyseTemplateList ellipsis [] [IdentifierAtom "a", IdentifierAtom "...", IdentifierAtom "b"] `shouldBe` [TemplateEllipsisNode 1 [1] (TemplateIdentifierAtom [1] "a"), TemplateIdentifierAtom [0] "b"]
+        analyseTemplateList ellipsis [] [IdentifierAtom "a", IdentifierAtom "...", IdentifierAtom "b"] `shouldBe` [TemplateEllipsisNode 1 [1] (TemplateIdentifierAtom [1,0] "a"), TemplateIdentifierAtom [0] "b"]
 
       it "resolves double ellipsis" $ do
-        analyseTemplateList ellipsis [] [IdentifierAtom "a", IdentifierAtom "...", IdentifierAtom "...", IdentifierAtom "b"] `shouldBe` [TemplateEllipsisNode 2 [1] (TemplateIdentifierAtom [1] "a"), TemplateIdentifierAtom [0] "b"]
+        analyseTemplateList ellipsis [] [IdentifierAtom "a", IdentifierAtom "...", IdentifierAtom "...", IdentifierAtom "b"] `shouldBe` [TemplateEllipsisNode 2 [1] (TemplateIdentifierAtom [1,0] "a"), TemplateIdentifierAtom [0] "b"]
 
     describe "MacroEngine.lookup" $ do
       it "looks up simple ellipse correctly" $ do
@@ -329,3 +329,8 @@ spec =
           ]]
         `shouldBe`
         Nothing
+    
+    describe "MacroEngine.makroengineBase" $ do
+      it "resolves let" $ do
+        let application = ApplicationNode (IdentifierAtom "let") [ApplicationNode (ApplicationNode (IdentifierAtom "a") [StringAtom "abc"]) [],IdentifierAtom "a"]
+        makroengineBase "let" application `shouldBe` ApplicationNode (LambdaNode [IdentifierAtom "a"] (IdentifierAtom "") [IdentifierAtom "a"]) [StringAtom "abc"]
