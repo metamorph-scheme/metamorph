@@ -122,9 +122,14 @@ parseIf = do
     pullEq "If" If
     p <- parseExpression "If Condition"
     a <- parseExpression "If Then Branch"
-    b <- parseExpression "If Else Branch"
-    pullEq "If" PClose
-    return (IfNode p a b)  
+    next <- peek "If"
+    if next /= PClose then do
+        b <- parseExpression "If Else Branch"
+        pullEq "If" PClose
+        return (IfNode p a b) 
+    else do
+        pullEq "If" PClose
+        return (IfNode p a (IdentifierAtom "" 0))
 
 parseSet :: State [Token] MetaNode
 parseSet = do

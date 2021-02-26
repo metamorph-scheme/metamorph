@@ -1,6 +1,7 @@
 module Parser.ParserData where
 import Lexer.Token
 import Parser.MetaNode
+import Common.Number
 
 p1 = [POpen, Identifier "+", Bool True, Bool True, PClose]
 p2 = [POpen, POpen, Lambda,  POpen, Identifier "x", Identifier "y", Dot, Identifier "z",PClose,
@@ -24,6 +25,7 @@ p11 = [POpen, Define, POpen,Identifier "func", Identifier "x", Identifier "y", D
         PClose, POpen, Identifier "+", POpen, Identifier "*", Identifier "x", POpen, Identifier "len", Identifier "z",
         PClose, PClose, POpen, Identifier "*", Identifier "y", POpen, Identifier "len", Identifier "z",
         PClose, PClose,PClose,PClose]
+p12 = [POpen, If, POpen, Identifier "Eq", Bool True, Bool False, PClose, POpen, Set, Identifier "x", Number (Exact (Integer 0)),PClose, PClose]
 
 
 
@@ -53,3 +55,5 @@ n11 = [DefineNode (IdentifierAtom "func" 0) (LambdaNode [IdentifierAtom "x" 0,Id
     (IdentifierAtom "z" 0) [ApplicationNode (IdentifierAtom "+" 0) [ApplicationNode (IdentifierAtom "*" 0)
     [IdentifierAtom "x" 0,ApplicationNode (IdentifierAtom "len" 0) [IdentifierAtom "z" 0]],ApplicationNode 
     (IdentifierAtom "*" 0) [IdentifierAtom "y" 0,ApplicationNode (IdentifierAtom "len" 0) [IdentifierAtom "z" 0]]]])]
+n12 = [IfNode (ApplicationNode (IdentifierAtom "Eq" 0) [BoolAtom True,BoolAtom False]) 
+    (SetNode (IdentifierAtom "x" 0) (NumberAtom (Exact (Integer 0)))) (IdentifierAtom "" 0)]
