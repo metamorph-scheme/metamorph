@@ -13,3 +13,8 @@ spec =
                 content <- hGetContents handle
                 let tokens = scan content 
                 parseScheme tokens `shouldBe` scipRepresentingTablesAst )
+        it "parses program composed from multiple toplevel constructs" $ do
+            withFile "testdata/multexpr.scm" ReadMode (\handle -> do
+                content <- hGetContents handle
+                let tokens = scan content 
+                parseScheme tokens `shouldBe` multExprAst)

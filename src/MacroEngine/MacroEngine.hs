@@ -24,7 +24,7 @@ data SyntaxRule = SyntaxRule Pattern Template
 type SyntaxRules = [SyntaxRule]
 
 -- flags for replacement algorithm
-data ReplacementFlag = Later | Found [Template] | Resolved [Template] | Outside deriving (Show)
+data ReplacementFlag = Found [Template] | Resolved [Template] | Outside deriving (Show)
 
 -- *** binding constructs ***
 
@@ -39,14 +39,14 @@ makroengineLet :: MetaNode -> [(String, MetaNode -> MetaNode)]
 makroengineLet = parseLetSyntax
 
 parseDefineSyntax :: MetaNode -> (String, MetaNode -> MetaNode)
-parseDefineSyntax (ApplicationNode (IdentifierAtom "define-syntax") [IdentifierAtom name, syntaxRules]) = (name, applySyntaxRules syntaxRules)
+parseDefineSyntax (DefineSyntaxNode (IdentifierAtom name _) syntaxRules) = (name, applySyntaxRules syntaxRules)
 parseDefineSyntax _ = error "wrong syntax for define-syntax"
 
 parseLetSyntax :: MetaNode -> [(String, MetaNode -> MetaNode)]
 parseLetSyntax (ApplicationNode rule1 rules) = map parseBinding (rule1:rules)
   -- rules is a 'transformer spec' in the standard
   where
-    parseBinding (ApplicationNode (IdentifierAtom name) [rule]) = (name, applySyntaxRules rule)
+    parseBinding (ApplicationNode (IdentifierAtom name _) [rule]) = (name, applySyntaxRules rule)
     parseBinding _ = error "Invalid syntax binding in let-syntax expression"
 
 -- *** macro core ***
@@ -60,20 +60,20 @@ apply rules application = renderTemplate . transform bindingTree $ template
 
 parseSyntaxRules :: MetaNode -> SyntaxRules
 -- syntax-rules without ellipsis argument
-parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules") ((ApplicationNode literalsCar literalsCdr):syntaxRules)) =
+parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules" _) ((ApplicationNode literalsCar literalsCdr):syntaxRules)) =
   map (parseSyntaxRule "..." (map extractLiteral (literalsCar:literalsCdr))) syntaxRules
-parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules") (EmptyAtom:syntaxRules)) =
+parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules" _) (EmptyAtom:syntaxRules)) =
   map (parseSyntaxRule "..." []) syntaxRules
 -- syntax-rules with ellipsis argument
-parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules") ((IdentifierAtom ellipsis):(ApplicationNode literalsCar literalsCdr):syntaxRules)) =
+parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules" _) ((IdentifierAtom ellipsis _):(ApplicationNode literalsCar literalsCdr):syntaxRules)) =
   map (parseSyntaxRule ellipsis (map extractLiteral (literalsCar:literalsCdr))) syntaxRules
-parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules") ((IdentifierAtom ellipsis):EmptyAtom:syntaxRules)) =
+parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules" _) ((IdentifierAtom ellipsis _):EmptyAtom:syntaxRules)) =
   map (parseSyntaxRule ellipsis []) syntaxRules
-parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules") _) = error "invalid syntax-rules syntax"
+parseSyntaxRules (ApplicationNode (IdentifierAtom "syntax-rules" _) _) = error "invalid syntax-rules syntax"
 parseSyntaxRules _ = error "macro transformer via syntax-rules expected"
 
 extractLiteral :: MetaNode -> Literal
-extractLiteral (IdentifierAtom name) = name
+extractLiteral (IdentifierAtom name _) = name
 extractLiteral _ = error "invalid literal identifier given"
 
 parseSyntaxRule :: Ellipsis -> [Literal] -> MetaNode -> SyntaxRule
@@ -123,7 +123,7 @@ transform bindingTree template = case transformM bindingTree 0 template of
 -- transform calls the generic transformM with ellipsis level 0 for root level templates
 
 transformM :: BindingTree -> Integer -> Template -> Maybe [Template]
-transformM bindingTree level template = (\rt->replace rt template) <$> replicateReplacementTable <$> (nonErrorLookupLabels level bindingTree identifierTable)
+transformM bindingTree level template = (\rt->replace rt template) <$> replicateReplacementTable <$> nonErrorLookupLabels level bindingTree identifierTable
   where identifierTable = identifierLabelTable template
 
 replace :: [[([Integer], Template, ReplacementFlag)]] -> Template -> [Template]
@@ -134,15 +134,18 @@ replaceSingle table template = replace' template
   where
     replace' (TemplateListNode xs) = TemplateListNode (replaceList xs)
     replace' (TemplateImproperListNode xs) = TemplateImproperListNode (replaceList xs)
-    replace' (TemplateIdentifierAtom path _)
+    replace' (TemplateIdentifierAtom path _ _)
       | length replacement == 1 = head replacement
       | otherwise = error "multiple values to replace for non-elliptic identifier"
       where
         replacement = lookup path
     replace' (TemplateLambdaNode a b c) = TemplateLambdaNode (replaceList a) (replace' b) (replaceList c)
     replace' (TemplateIfNode a b c) = TemplateIfNode (replace' a) (replace' b) (replace' c)
+    replace' (TemplateLetSyntaxNode a b) = TemplateLetSyntaxNode (replace' a) (replaceList b)
+    replace' (TemplateLetrecSyntaxNode a b) = TemplateLetrecSyntaxNode (replace' a) (replaceList b)
+    replace' (TemplateDefineSyntaxNode a b) = TemplateDefineSyntaxNode (replace' a) (replace' b)
     replace' o = o
-    replaceList ((TemplateIdentifierAtom path _):xs) = ( lookup path ++ replaceList xs)
+    replaceList ((TemplateIdentifierAtom path _ _) :xs) = ( lookup path ++ replaceList xs)
     replaceList  ((TemplateEllipsisNode _ path _):xs) = ( lookup path ++ replaceList xs )
     replaceList  (x:xs) = ( replace' x : replaceList xs)
     replaceList  [] = []
@@ -168,18 +171,50 @@ replicateReplacementTable table = if length founds == 0
       foundList (_, _, (Found xs)) = xs
       allTheSame xs = and $ map (== head xs) (tail xs)
 
+-- for semantic analysis
+incrementIdentifiers :: ([Integer], Template, ReplacementFlag) -> ([Integer], Template, ReplacementFlag)
+incrementIdentifiers (path, template, Resolved replacement) = (path, template, Resolved (map increment replacement))
+incrementIdentifiers (path, template, Found replacement) = (path, template, Found (map increment replacement))
+incrementIdentifiers rte@(_, _, Outside) = rte
+
+increment :: Template -> Template
+increment (TemplateIdentifierAtom path str i) = TemplateIdentifierAtom path str (i + 1)
+increment (TemplateListNode a) = TemplateListNode (map increment a)
+increment (TemplateImproperListNode a) = TemplateImproperListNode (map increment a)
+increment (TemplateIfNode a b c) = TemplateIfNode (increment a) (increment b) (increment c)
+increment (TemplateSetNode a b) = TemplateSetNode (increment a) (increment b)
+increment (TemplateDefineNode a b) = TemplateDefineNode (increment a) (increment b)
+increment (TemplateLetSyntaxNode a b) = TemplateLetSyntaxNode (increment a) (map increment b)
+increment (TemplateDefineSyntaxNode a b) = TemplateDefineSyntaxNode (increment a) (increment b)
+increment (TemplateLetrecSyntaxNode a b) = TemplateLetrecSyntaxNode (increment a) (map increment b)
+increment (TemplateAtom a) = TemplateAtom (incrementMN a)
+increment other = other
+
+incrementMN :: MetaNode -> MetaNode
+incrementMN (IdentifierAtom str i) = IdentifierAtom str (i + 1)
+incrementMN (LambdaNode a b c) = LambdaNode (map incrementMN a) (incrementMN b) (map incrementMN c)
+incrementMN (PairNode a b) = PairNode (incrementMN a) (incrementMN b)
+incrementMN (ApplicationNode a b) = ApplicationNode (incrementMN a) (map incrementMN b)
+incrementMN (IfNode a b c) = IfNode (incrementMN a) (incrementMN b) (incrementMN c)
+incrementMN (SetNode a b) = SetNode (incrementMN a) (incrementMN b)
+incrementMN (DefineNode a b) = DefineNode (incrementMN a) (incrementMN b)
+incrementMN (LetSyntaxNode a b) = LetSyntaxNode (incrementMN a) (map incrementMN b)
+incrementMN (DefineSyntaxNode a b) = DefineSyntaxNode (incrementMN a) (incrementMN b)
+incrementMN (LetrecSyntaxNode a b) = LetrecSyntaxNode (incrementMN a) (map incrementMN b)
+incrementMN other = other
+
 -- resolving nested ellipsis
 -- only concat to level and supply an index to lookup
 
 nonErrorLookupLabels :: Integer -> BindingTree -> [([Integer], Template)] -> Maybe [([Integer], Template, ReplacementFlag)]
 nonErrorLookupLabels level bindingTree identifierTable = sequence . map lookup $ identifierTable
   where patternVariables = nub $ bindingTree >>= getPatternVariables
-        lookup (path, i@(TemplateIdentifierAtom _ str)) 
+        lookup (path, i@(TemplateIdentifierAtom _ str _)) 
           | level == 0 = lookupIdentifier Resolved path i level str
           | otherwise = lookupIdentifier Found path i level str
         -- different from normal identifier lookup in that everything should be resolved and not found
         -- TODO may clash with ongoing fixes of nested subtemplate ellipses
-        lookup (path, e@(TemplateEllipsisNode count _ i@(TemplateIdentifierAtom _ str)))
+        lookup (path, e@(TemplateEllipsisNode count _ i@(TemplateIdentifierAtom _ str _)))
           | level == 0 = lookupIdentifier Resolved path e count str
           | otherwise = lookupIdentifier Found path e (level + count) str
         lookup (path, e@(TemplateEllipsisNode count _ node)) = resolveEllipsis
@@ -194,15 +229,15 @@ nonErrorLookupLabels level bindingTree identifierTable = sequence . map lookup $
         lookupIdentifier f path identifier iLevel str
           | str `elem` patternVariables = case nonErrorLookup iLevel str bindingTree of
               Nothing -> case nonErrorLookup 0 str bindingTree of
-                Just replacement -> Just (path, identifier, Resolved (map TemplateAtom replacement))
+                Just replacement -> Just (incrementIdentifiers (path, identifier, Resolved (map TemplateAtom replacement)))
                 Nothing -> Nothing
-              Just replacement -> Just (path, identifier, f (map TemplateAtom replacement))
+              Just replacement -> Just (incrementIdentifiers (path, identifier, f (map TemplateAtom replacement)))
           | otherwise = Just (path, identifier, Outside)
 
 getPatternVariables :: Binding -> [String]
 getPatternVariables (SubPatternEllipsis _ xs) = xs >>= (\bindingTree -> bindingTree >>= getPatternVariables)
-getPatternVariables (IdentifierEllipsis (IdentifierAtom str) _) = [str]
-getPatternVariables (Value (IdentifierAtom str) _) = [str]
+getPatternVariables (IdentifierEllipsis (IdentifierAtom str _) _) = [str]
+getPatternVariables (Value (IdentifierAtom str _) _) = [str]
 getPatternVariables (Empty) = []
 
 identifierLabelTable :: Template -> [([Integer], Template)]
@@ -210,7 +245,7 @@ identifierLabelTable (TemplateListNode xs) = xs >>= identifierLabelTable
 identifierLabelTable (TemplateImproperListNode xs) = xs >>= identifierLabelTable
 identifierLabelTable (TemplateLambdaNode a b c) = (a >>= identifierLabelTable) ++ identifierLabelTable b ++ (c >>= identifierLabelTable)
 identifierLabelTable (TemplateIfNode a b c) = identifierLabelTable a ++ identifierLabelTable b ++ identifierLabelTable c
-identifierLabelTable ident@(TemplateIdentifierAtom path _) = [(path, ident)]
+identifierLabelTable ident@(TemplateIdentifierAtom path _ _) = [(path, ident)]
 identifierLabelTable ellipsis@(TemplateEllipsisNode count path _) = [(path, ellipsis)]
 identifierLabelTable _ = []
 
@@ -251,7 +286,7 @@ hasIdentifier str (SubPatternEllipsis n _) = containsIdentifier str n
 hasIdentifier str (IdentifierEllipsis n _) = containsIdentifier str n
 
 containsIdentifier :: String -> MetaNode -> Bool
-containsIdentifier str (IdentifierAtom i) = str == i
+containsIdentifier str (IdentifierAtom i _) = str == i
 containsIdentifier str p@(PairNode _ _) = or . map (containsIdentifier str) $ makeList p
 containsIdentifier str a@(ApplicationNode _ _) = or . map (containsIdentifier str) $ makeList a
 -- todo if, define, set
@@ -265,10 +300,14 @@ renderTemplate (TemplateImproperListNode [a,b]) = PairNode (renderTemplate a) (r
 renderTemplate (TemplateImproperListNode list) = PairNode (renderTemplate (head list)) (renderTemplate (TemplateImproperListNode (tail list)))
 renderTemplate (TemplateAtom atom) = atom
 renderTemplate (TemplateLambdaNode a b c) = LambdaNode (map renderTemplate a) (renderTemplate b) (map renderTemplate c)
-renderTemplate (TemplateIdentifierAtom _ identifierStr) = IdentifierAtom identifierStr
+renderTemplate (TemplateIdentifierAtom _ identifierStr num)  = IdentifierAtom identifierStr num
 renderTemplate (TemplateSetNode a b) = SetNode (renderTemplate a) (renderTemplate b)
 renderTemplate (TemplateDefineNode a b) = DefineNode (renderTemplate a) (renderTemplate b)
 renderTemplate (TemplateIfNode a b c) = IfNode (renderTemplate a) (renderTemplate b) (renderTemplate c)
+renderTemplate (TemplateLetSyntaxNode a b) = LetSyntaxNode (renderTemplate a) (map renderTemplate b)
+renderTemplate (TemplateLetrecSyntaxNode a b) = LetrecSyntaxNode (renderTemplate a) (map renderTemplate b)
+renderTemplate (TemplateDefineSyntaxNode a b) = DefineSyntaxNode (renderTemplate a) (renderTemplate b)
+
 
 analyseTemplate :: Ellipsis -> [Integer] -> MetaNode -> Template
 analyseTemplate ellipsis path a@(ApplicationNode _ _) = TemplateListNode (analyseTemplateList ellipsis path (makeList a))
@@ -281,20 +320,25 @@ analyseTemplate _ _ atom@(EmptyAtom) = TemplateAtom atom
 analyseTemplate _ _ atom@(StringAtom a) = TemplateAtom atom
 analyseTemplate _ _ atom@(BoolAtom a) = TemplateAtom atom
 analyseTemplate _ _ atom@(CharAtom a) = TemplateAtom atom
-analyseTemplate _ path (IdentifierAtom a) = TemplateIdentifierAtom path a
-analyseTemplate ellipsis path (SetNode a b) = TemplateSetNode (analyseTemplate ellipsis path a) (analyseTemplate ellipsis path b)
-analyseTemplate ellipsis path (DefineNode a b) = TemplateDefineNode (analyseTemplate ellipsis path a) (analyseTemplate ellipsis path b)
+analyseTemplate _ path (IdentifierAtom a num) = TemplateIdentifierAtom path a num
+analyseTemplate ellipsis path (SetNode a b) = TemplateSetNode (analyseTemplate ellipsis (path ++ [1]) a) (analyseTemplate ellipsis (path ++ [0]) b)
+analyseTemplate ellipsis path (LetSyntaxNode a b) = TemplateLetSyntaxNode (analyseTemplate ellipsis (path ++ [1]) a) (analyseTemplateList ellipsis (path ++ [0]) b)
+analyseTemplate ellipsis path (LetrecSyntaxNode a b) = TemplateLetrecSyntaxNode (analyseTemplate ellipsis (path ++ [1]) a) (analyseTemplateList ellipsis (path ++ [0]) b)
+analyseTemplate ellipsis path (DefineSyntaxNode a b) = TemplateDefineSyntaxNode (analyseTemplate ellipsis (path ++ [1]) a) (analyseTemplate ellipsis (path ++ [0]) b)
+analyseTemplate ellipsis path (DefineNode a b) = TemplateDefineNode (analyseTemplate ellipsis (path ++ [1]) a) (analyseTemplate ellipsis (path ++ [0]) b)
 
 analyseTemplateList :: Ellipsis -> [Integer] ->[MetaNode] -> [Template]
 analyseTemplateList ellipsis path nodeList = (\(a, _, _) -> a) . foldr (wrapOnEllipsis ellipsis path) ([],0, 0) $ nodeList
 
 wrapOnEllipsis :: Ellipsis -> [Integer] -> MetaNode -> ([Template], Integer, Integer) -> ([Template], Integer, Integer)
 wrapOnEllipsis ellipsis path metaNode (nl, wrapCount, index)
-  | metaNode == (IdentifierAtom ellipsis) = (nl, wrapCount + 1, index)
+  | isIdentifierAndEqual ellipsis metaNode = (nl, wrapCount + 1, index)
   | otherwise = ((wrap metaNode wrapCount):nl, 0, index + 1)
   where
     wrap node 0 = analyseTemplate ellipsis (path ++ [index]) node
     wrap node count = TemplateEllipsisNode count (path ++ [index]) (analyseTemplate ellipsis (path ++ [index,0]) node)
+    isIdentifierAndEqual str (IdentifierAtom istr _) = str == istr
+    isIdentifierAndEqual _ _ = False
 
 -- *** Pattern Matching ***
 
@@ -303,8 +347,8 @@ matchApplication :: Pattern -> MetaNode -> Maybe BindingTree
 -- pattern has to be in scheme form for matchList to operate recursively
 -- it can be an application node or a pair node (top-level pattern has to be of list form)
 matchApplication pattern@Pattern{patternNode=patternNode} params@(ApplicationNode _ _)
-  | (ApplicationNode (IdentifierAtom _) xs) <- patternNode = matchList pattern{patternNode = (ApplicationNode (IdentifierAtom "_") xs)} params
-  | (PairNode (IdentifierAtom _) cdr) <- patternNode = matchList pattern{patternNode = (PairNode (IdentifierAtom "_") cdr)} params
+  | (ApplicationNode (IdentifierAtom _ _) xs) <- patternNode = matchList pattern{patternNode = (ApplicationNode (IdentifierAtom "_" 0) xs)} params
+  | (PairNode (IdentifierAtom _ _) cdr) <- patternNode = matchList pattern{patternNode = (PairNode (IdentifierAtom "_" 0) cdr)} params
   | otherwise = error "top level pattern is not in list form"
 matchApplication _ _ = error "invalid macro application passed to macro engine"
 
@@ -353,14 +397,14 @@ curriedMatch ellipsis literals pattern = match Pattern{ellipsis=ellipsis, litera
 
 match :: Pattern -> MetaNode -> Maybe BindingTree
 -- if p is an underscore
-match Pattern{patternNode = (IdentifierAtom "_")} _ = Just emptyTree
+match Pattern{patternNode = (IdentifierAtom "_" _)} _ = Just emptyTree
 -- if p is non literal
-match Pattern{literals = literals, patternNode = p@(IdentifierAtom pidentifier)} e@(IdentifierAtom identifier)
+match Pattern{literals = literals, patternNode = p@(IdentifierAtom pidentifier _)} e@(IdentifierAtom identifier _)
 -- TODO discuss role of "lexical binding" in r7rs page 23, right column
   | pidentifier `elem` literals && identifier /= pidentifier = Nothing
   | otherwise = Just $ singletonTree p e
 
-match Pattern{literals=literals, patternNode = p@(IdentifierAtom pidentifier)} e
+match Pattern{literals=literals, patternNode = p@(IdentifierAtom pidentifier _)} e
   | pidentifier `elem` literals = Nothing
   | otherwise = Just $ singletonTree p e
 
@@ -398,12 +442,11 @@ matchList Pattern{ellipsis=ellipsis, literals=literals, patternNode=patternNode}
     patternLenght = headLenght + tailLenght
     (headLenght, tailLenght) = mapTuple length (headPattern, tailPattern)
     (headPattern, ellipsisPattern) = (init tHeadPattern, last tHeadPattern)
-    splitPattern@(tHeadPattern, tailPattern) = splitAtFirst ellipsisNode patternList
+    splitPattern@(tHeadPattern, tailPattern) = splitAtFirstIdentifier ellipsis patternList
     patternList = makeList patternNode
     paramLenght = length paramList
     paramList = makeList params
-    ellipsisOccurences = count ellipsisNode patternList
-    ellipsisNode = IdentifierAtom ellipsis
+    ellipsisOccurences = countIdentifiers ellipsis patternList
     
 
 makeList :: MetaNode -> [MetaNode]
@@ -417,11 +460,24 @@ makeList node = [node]
 splitAtFirst :: Eq a => a -> [a] -> ([a], [a])
 splitAtFirst x = fmap (drop 1) . break (x ==)
 
+splitAtFirstIdentifier :: String -> [MetaNode] -> ([MetaNode], [MetaNode])
+splitAtFirstIdentifier x = fmap (drop 1) . break breakFunc
+  where
+    breakFunc (IdentifierAtom str _) = x == str
+    breakFunc _ = False
+
 mapTuple :: (a -> b) -> (a, a) -> (b, b)
 mapTuple f (a1, a2) = (f a1, f a2)
 
 count   :: Eq a => a -> [a] -> Int
 count x =  length . filter (==x)
+
+countIdentifiers :: String -> [MetaNode] -> Int
+countIdentifiers str = count str . map (\(IdentifierAtom str _) -> str) . filter isIdentifier
+
+isIdentifier :: MetaNode -> Bool
+isIdentifier (IdentifierAtom _ _) = True
+isIdentifier _ = False
 
 toFst :: (a -> b) -> a -> (b, a)
 toFst f a = (f a, a)

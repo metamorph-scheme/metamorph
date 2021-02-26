@@ -11,10 +11,11 @@ import Data.Complex
 import Lexer.Token
 
 
-parseScheme :: [Token] -> MetaNode
+parseScheme :: [Token] -> [MetaNode]
 parseScheme st = case runState (parseExpression "Scheme Program") st of
-    (mn, []) -> mn
-    (_, t:_) -> error $ "Unexpected token " ++ show t ++ " not allowed in top level of program"
+    (mn, []) -> [mn]
+    (mn, up) -> mn:parseScheme up
+    --(_, t:_) -> error $ "Unexpected token " ++ show t ++ " not allowed in top level of program"
 
 push :: Token -> State [Token] ()
 push t = do
@@ -77,6 +78,9 @@ parseSyntax = do
         PClose -> do
             pullEq "PClose" PClose
             return EmptyAtom
+        DefineSyntax -> parseDefineSyntax
+        LetSyntax -> parseLetSyntax
+        LetrecSyntax -> parseLetrecSyntax
         _ -> parseApplication
 
 parseAtom :: State [Token] MetaNode
@@ -87,12 +91,12 @@ parseAtom = do
         String s -> return $ StringAtom s
         Char c -> return $ CharAtom c
         Number n -> return $ NumberAtom n
-        Identifier i -> return $ IdentifierAtom i
-        Quote -> return $ IdentifierAtom "quote"
-        Unquote -> return $ IdentifierAtom "unquote"
-        QuasiQuote -> return $ IdentifierAtom "quasiquote"
-        Set  -> return $ IdentifierAtom "set!"
-        Define  -> return $ IdentifierAtom "define"
+        Identifier i -> return $ IdentifierAtom i 0
+        Quote -> return $ IdentifierAtom "quote" 0
+        Unquote -> return $ IdentifierAtom "unquote" 0
+        QuasiQuote -> return $ IdentifierAtom "quasiquote" 0
+        Set  -> return $ IdentifierAtom "set!" 0
+        Define  -> return $ IdentifierAtom "define" 0
         _ -> error $ "Unexpected token " ++ show t ++ " not allowed in current context"
 
 parseQuote :: State [Token] MetaNode
@@ -133,7 +137,7 @@ parseSet = do
         (Identifier str) -> do
             e <- parseExpression "Set Body"
             pullEq "Set" PClose
-            return (SetNode (IdentifierAtom str) e)
+            return (SetNode (IdentifierAtom str 0) e)
         _ -> error "Expected Identifier as first argument of set"
 
 parseDefine :: State [Token] MetaNode
@@ -144,7 +148,7 @@ parseDefine = do
         (Identifier str) -> do
             e <- parseExpression "Define Body"
             pullEq "Define" PClose
-            return (DefineNode (IdentifierAtom str) e)
+            return (DefineNode (IdentifierAtom str 0) e)
         POpen -> parseDefineFunction
         _ -> error "Expected Identifier oder Parantheses as first argument of define"
 
@@ -155,6 +159,32 @@ parseDefineFunction =  do
             case ps of
                 (i:ps) -> return (DefineNode i (LambdaNode ps p es))
                 _ -> error "Expected parameter list in function definition"
+
+parseDefineSyntax :: State [Token] MetaNode
+parseDefineSyntax = do
+    pullEq "Define-Syntax" DefineSyntax
+    t <- pull "Define-Syntax"   
+    case t of
+        (Identifier str) -> do
+            e <- parseExpression "Define-Syntax Rules"
+            pullEq "Define-Syntax" PClose
+            return (DefineSyntaxNode (IdentifierAtom str 0) e)
+        _ -> error "Expected Identifier as first argument of define-syntax"
+
+parseLetSyntax :: State [Token] MetaNode
+parseLetSyntax = do
+    pullEq "Let-Syntax" LetSyntax
+    e <- parseExpression "Let-Syntax Rules"
+    body <- parseExpressionList "Let-Syntax Body"
+    return (LetSyntaxNode e body)
+
+parseLetrecSyntax :: State [Token] MetaNode
+parseLetrecSyntax = do
+    pullEq "Letrec-Syntax" LetrecSyntax
+    e <- parseExpression "Letrec-Syntax Rules"
+    body <- parseExpressionList "Letrec-Syntax Body"
+    return (LetrecSyntaxNode e body)
+   
 
 parseApplication :: State [Token] MetaNode
 parseApplication = do
@@ -199,7 +229,7 @@ parseQuotedShortForm :: State [Token] MetaNode
 parseQuotedShortForm = do
     t <- pull "Quoted Shortform"
     d <- parseQuotedDatum
-    return $ PairNode (IdentifierAtom (show t)) (PairNode d EmptyAtom)
+    return $ PairNode (IdentifierAtom (show t) 0) (PairNode d EmptyAtom)
 
 parseQuasiQuotedDatum :: State [Token] MetaNode
 parseQuasiQuotedDatum = do
@@ -243,7 +273,7 @@ parseQuasiQuotedShortForm :: State [Token] MetaNode
 parseQuasiQuotedShortForm = do
     t <- pull "Quasiquoted Shortform"
     d <- parseQuasiQuotedDatum
-    return $ PairNode (IdentifierAtom (show t)) (PairNode d EmptyAtom)
+    return $ PairNode (IdentifierAtom (show t) 0) (PairNode d EmptyAtom)
 
 parseUnquotedExpression :: State [Token] MetaNode
 parseUnquotedExpression = do
@@ -270,7 +300,7 @@ parseFormalParameters = do
     t <- pull "Formal Paramters"
     case t of
         POpen -> parseFormalParameterList
-        Identifier s -> return ([],IdentifierAtom s)  
+        Identifier s -> return ([],IdentifierAtom s 0)  
         _ -> error "Expected parameter list or single parameter in lambda definition"
 
 parseFormalParameterList :: State [Token] ([MetaNode], MetaNode)
@@ -278,16 +308,16 @@ parseFormalParameterList = do
     t <- pull "Formal Paramterlist"
     case t of 
         PClose -> do
-            return ([], IdentifierAtom "")
+            return ([], IdentifierAtom "" 0)
         Dot -> do
             t <- pull "Formal Paramterlist"
             case t of 
                 Identifier str -> do
                     pullEq "Formal Paramterlist" PClose
-                    return ([], IdentifierAtom str)
+                    return ([], IdentifierAtom str 0)
                 _ -> error $ "Expected formal parameters in formal parameterlist not token " ++ show t
         Identifier str -> do
             (is, i) <- parseFormalParameterList
-            return ((IdentifierAtom str):is, i)
+            return ((IdentifierAtom str 0):is, i)
         _ -> error $ "Expected formal parameters in formal parameterlist not token " ++ show t
         
