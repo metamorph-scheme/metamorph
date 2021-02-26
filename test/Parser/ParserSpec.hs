@@ -29,4 +29,6 @@ spec =
             parseScheme p10 `shouldBe` n10
         it "Parses p11 correct" $ do
             parseScheme p11 `shouldBe` n11
+        it "Parses p12 correct" $ do
+            parseScheme p12 `shouldBe` n12
 
