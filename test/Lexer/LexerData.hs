@@ -12,5 +12,5 @@ lexer2Result = [ POpen, Define, POpen, Identifier "lookup", Identifier "key-1", 
   , POpen, Identifier "cdr", Identifier "table", PClose, PClose, PClose, PClose, POpen, If, Identifier "subtable"
   , POpen, Identifier "let", POpen, POpen, Identifier "record", POpen, Identifier "assoc", Identifier "key-2"
   , POpen, Identifier "cdr", Identifier "subtable", PClose, PClose, PClose, PClose, POpen, If, Identifier "record"
-  , POpen, Identifier "cdr", Identifier "record", PClose, Identifier "false", PClose, PClose, Identifier "false"
+  , POpen, Identifier "cdr", Identifier "record", PClose, Bool False, PClose, PClose, Bool False
   , PClose, PClose, PClose ]
