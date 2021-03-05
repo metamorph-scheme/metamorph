@@ -8,7 +8,7 @@ import Parser.MetaNode
 import MacroEngine.MacroEngine
 type AnalysisState = SymbolTable
 
-dbgPrint n mn = trace ("\n Debug " ++ show n ++ ": " ++ show mn ++ "\n")
+--dbgPrint n mn = trace ("\n Debug " ++ show n ++ ": " ++ show mn ++ "\n")
 
 pushActivationEntries :: [String] -> State AnalysisState ()
 pushActivationEntries params = do
