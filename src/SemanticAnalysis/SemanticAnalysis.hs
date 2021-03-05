@@ -185,7 +185,7 @@ injectName (IdentifierAtom str n) (CharAtom c) = CharAtom c
 -- Makro params need to be annotated
 annotateApplication :: MetaNode -> Bool -> State AnalysisState MetaNode'
 annotateApplication (ApplicationNode mn params) tailpos = do
-    mn' <- annotateExpression  mn False
+    mn' <- annotateExpression mn False
     case mn' of
         (BaseSyntaxAtom' str level) -> do
             pushScope level
