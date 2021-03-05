@@ -271,14 +271,17 @@ annotateIdentifier (IdentifierAtom str scope) = resolveIdentifier' 0 0 0 scope w
 
 annotateLetSyntax :: MetaNode -> Bool -> State AnalysisState MetaNode'
 annotateLetSyntax (LetSyntaxNode rules body) tailpos = do
-
-    pushSyntaxEntries (makroengineLet rules)
-    body' <- annotateBody body tailpos
+    let identifiers = makroengineLetIdentifiers rules
+    let rules' = foldr injectName rules identifiers
+    pushSyntaxEntries (makroengineLet rules')
+    body' <- annotateBody (injectNames identifiers body) tailpos
     popEntries
     return body'
 annotateLetrecSyntax :: MetaNode -> Bool -> State AnalysisState MetaNode'
 annotateLetrecSyntax (LetrecSyntaxNode rules body) tailpos = do
-    pushSyntaxEntries (makroengineLet rules)
-    body' <- annotateBody body tailpos
+    let identifiers = makroengineLetIdentifiers rules
+    let rules' = foldr injectName rules identifiers
+    pushSyntaxEntries (makroengineLet rules')
+    body' <- annotateBody (injectNames identifiers body) tailpos
     popEntries
     return body'
