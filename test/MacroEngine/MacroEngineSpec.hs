@@ -335,3 +335,8 @@ spec =
       it "resolves let" $ do
         let application = ApplicationNode (IdentifierAtom "let" 0) [ApplicationNode (ApplicationNode (IdentifierAtom "a" 0) [StringAtom "abc"]) [],IdentifierAtom "a" 0]
         makroengineBase "let" application `shouldBe` ApplicationNode (LambdaNode [IdentifierAtom "a" 1] (IdentifierAtom "" 0) [IdentifierAtom "a" 1]) [StringAtom "abc"]
+    
+    describe "MacroEngine.makroengineLetIdentifiers" $ do
+      it "returns identifiers bound by let-syntax" $ do
+        let bindings = ApplicationNode (ApplicationNode (IdentifierAtom "hansi" 0) [ApplicationNode (IdentifierAtom "syntax-rules" 0) [EmptyAtom,ApplicationNode (ApplicationNode (IdentifierAtom "_" 0) [IdentifierAtom "x" 0,IdentifierAtom "y" 0]) [LetSyntaxNode (ApplicationNode (ApplicationNode (IdentifierAtom "syn" 0) [ApplicationNode (IdentifierAtom "syntax-rules" 0) [EmptyAtom,ApplicationNode (ApplicationNode (IdentifierAtom "_" 0) [IdentifierAtom "a" 0]) [ApplicationNode (IdentifierAtom "odd?" 0) [IdentifierAtom "a" 0]]]]) []) [ApplicationNode (IdentifierAtom "y" 0) [ApplicationNode (IdentifierAtom "syn" 0) [IdentifierAtom "x" 0]]]]]]) []
+        makroengineLetIdentifiers bindings `shouldBe` [IdentifierAtom "hansi" 0]
