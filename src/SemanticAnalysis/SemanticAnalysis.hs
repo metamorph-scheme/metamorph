@@ -37,12 +37,12 @@ popEntries = do
         Global -> error "Internal Compiler Error: popEntries on empty symbol table"
 
 pushDefines :: [MetaNode] -> State AnalysisState [MetaNode]
-pushDefines ((DefineNode (IdentifierAtom str _) trg):ms) = do
+pushDefines ((DefineNode id@(IdentifierAtom str _) trg):ms) = do
     oldentries <- get
     case oldentries of
         Activation entries next -> do
             put $ Activation ((str, length entries):entries) next
-            ms' <- pushDefines ms
+            ms' <- pushDefines (injectName id <$> ms)
             return $ SetNode (IdentifierAtom str 0) trg:ms'
         _ -> error "Internal Compiler Error: Incorrect Usage of pushDefines"
 pushDefines ((DefineNode _ _):ms) = error "Expected unbound identifier as first argument of define"
@@ -52,12 +52,12 @@ pushDefines (m:ms) = do
 pushDefines [] = return []
 
 pushDefineSyntax :: [MetaNode] -> State AnalysisState [MetaNode]
-pushDefineSyntax (definesyntax@(DefineSyntaxNode (IdentifierAtom str 0) _):ms) = do
+pushDefineSyntax (definesyntax@(DefineSyntaxNode id@(IdentifierAtom str 0) _):ms) = do
     oldentries <- get
     case oldentries of
         Syntax entries next -> do
             put $ Syntax  (makroengineDefine definesyntax:entries) next
-            pushDefineSyntax ms
+            pushDefineSyntax (injectName id <$> ms)
         _ -> error "Internal Compiler Error: Incorrect Usage of pushDefineSyntax"
 pushDefineSyntax ((DefineSyntaxNode _ _):ms) =  error "Expected unbound identifier as first argument of define-syntax"
 pushDefineSyntax (m:ms) = do
