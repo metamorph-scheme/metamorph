@@ -37,12 +37,12 @@ popEntries = do
         Global -> error "Internal Compiler Error: popEntries on empty symbol table"
 
 pushDefines :: [MetaNode] -> State AnalysisState [MetaNode]
-pushDefines ((DefineNode id@(IdentifierAtom str _) trg):ms) = do
+pushDefines ((DefineNode (IdentifierAtom str _) trg):ms) = do
     oldentries <- get
     case oldentries of
         Activation entries next -> do
             put $ Activation ((str, length entries):entries) next
-            ms' <- pushDefines (injectName id <$> ms)
+            ms' <- pushDefines (injectName (IdentifierAtom str 0) <$> ms)
             return $ SetNode (IdentifierAtom str 0) trg:ms'
         _ -> error "Internal Compiler Error: Incorrect Usage of pushDefines"
 pushDefines ((DefineNode _ _):ms) = error "Expected unbound identifier as first argument of define"
@@ -52,12 +52,12 @@ pushDefines (m:ms) = do
 pushDefines [] = return []
 
 pushDefineSyntax :: [MetaNode] -> State AnalysisState [MetaNode]
-pushDefineSyntax (definesyntax@(DefineSyntaxNode id@(IdentifierAtom str 0) _):ms) = do
+pushDefineSyntax (definesyntax@(DefineSyntaxNode (IdentifierAtom str _) _):ms) = do
     oldentries <- get
     case oldentries of
         Syntax entries next -> do
             put $ Syntax  (makroengineDefine definesyntax:entries) next
-            pushDefineSyntax (injectName id <$> ms)
+            pushDefineSyntax (injectName (IdentifierAtom str 0) <$> ms)
         _ -> error "Internal Compiler Error: Incorrect Usage of pushDefineSyntax"
 pushDefineSyntax ((DefineSyntaxNode _ _):ms) =  error "Expected unbound identifier as first argument of define-syntax"
 pushDefineSyntax (m:ms) = do
@@ -149,8 +149,8 @@ annotateLambda (LambdaNode params variadic exprs) = do
         unpackName' (IdentifierAtom str _)  = str
 
 injectNames :: [MetaNode] -> [MetaNode] -> [MetaNode]
-injectNames [] exprs = exprs
-injectNames (name:names) exprs = injectNames names (injectName name <$> exprs)
+injectNames names exprs
+  = foldl (\ exprs name -> injectName name <$> exprs) exprs names
 
 injectName :: MetaNode -> MetaNode ->  MetaNode
 injectName (IdentifierAtom str 0) mn = mn
@@ -161,16 +161,16 @@ injectName (IdentifierAtom str n) id@(DefineSyntaxNode src trg) = DefineSyntaxNo
 injectName (IdentifierAtom str n) id@(DefineNode src trg)  = DefineNode (injectName id src) (injectName id trg)
 injectName (IdentifierAtom str n) (ApplicationNode mn mns)  = ApplicationNode (injectName (IdentifierAtom str n) mn) (injectName (IdentifierAtom str n) <$> mns)
 injectName (IdentifierAtom str n) (PairNode car cdr)  = let
-    car' = injectName (IdentifierAtom str n) car 
+    car' = injectName (IdentifierAtom str n) car
     cdr' = injectName (IdentifierAtom str n) cdr in
         PairNode car' cdr'
 injectName (IdentifierAtom str n) (IfNode ifexpr thenbr elsebr)  = let
-    ifexpr' = injectName (IdentifierAtom str n) ifexpr 
-    thenbr' = injectName (IdentifierAtom str n) thenbr 
+    ifexpr' = injectName (IdentifierAtom str n) ifexpr
+    thenbr' = injectName (IdentifierAtom str n) thenbr
     elsebr' = injectName (IdentifierAtom str n) elsebr in
         IfNode ifexpr' thenbr' elsebr'
 injectName (IdentifierAtom str n) (SetNode src trg)  = let
-    src' = injectName (IdentifierAtom str n) src 
+    src' = injectName (IdentifierAtom str n) src
     trg' = injectName (IdentifierAtom str n) trg in
         SetNode src' trg'
 injectName (IdentifierAtom str n) (IdentifierAtom str' n')
@@ -271,11 +271,11 @@ annotateIdentifier (IdentifierAtom str scope) = resolveIdentifier' 0 0 0 scope w
 
 annotateLetSyntax :: MetaNode -> Bool -> State AnalysisState MetaNode'
 annotateLetSyntax (LetSyntaxNode rules body) tailpos = do
+
     pushSyntaxEntries (makroengineLet rules)
     body' <- annotateBody body tailpos
     popEntries
     return body'
-
 annotateLetrecSyntax :: MetaNode -> Bool -> State AnalysisState MetaNode'
 annotateLetrecSyntax (LetrecSyntaxNode rules body) tailpos = do
     pushSyntaxEntries (makroengineLet rules)
