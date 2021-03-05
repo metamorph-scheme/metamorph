@@ -3,6 +3,8 @@
     (define (foo x) (bar x))
     (define (bar y) (foo y))
     (define ident (+ zero 1))
+    (let ((x 3)) (set! zero (- 3 x)))
+    ((lambda (x) (set! zero (- 3 x))) 3)
     (if (> n 0) 
         (* n (fac (- n 1)))
         ident))

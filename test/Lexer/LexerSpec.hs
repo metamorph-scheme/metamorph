@@ -44,6 +44,9 @@ spec = describe "Lexer.scan" $ do
     it "can classify two identifiers" $ do
       scan "identa ident2 " `shouldBe` [Identifier "identa", Identifier "ident2"]
 
+    it "can classify underscore identifiers" $ do
+      scan "_ " `shouldBe` [Identifier "_"]
+
     it "can classify identifier followed by bracket" $ do
       scan "identifier(a)" `shouldBe` [Identifier "identifier", POpen, Identifier "a", PClose]
 

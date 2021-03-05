@@ -12,7 +12,7 @@ import Lexer.TypeConversion
 
 $digit = [0-9]
 $letter = [a-zA-Z]
-$specialInitial = [!\$\%&\*\/:\<\=\>\?\^\~]
+$specialInitial = [!\$\%&\*\/:\<\=\>\?\^_\~]
 $dot = \.
 $hexDigit = [0-9a-f]
 $verticalLine = \|
@@ -64,6 +64,9 @@ $explicitSign = [\+\-]
 @lambda = lambda
 @set = set!
 @if = if
+@letSyntax = let\-syntax
+@defineSyntax = define\-syntax
+@letrecSyntax = letrec\-syntax
 
 -- quotation
 
@@ -202,6 +205,9 @@ tokens :-
   $openingBracket           { simpleToken POpen }  
   $closingBracket           { simpleToken PClose }
   @lambda / @delimiter      { simpleToken Lambda }
+  @letSyntax / @delimiter  { simpleToken LetSyntax}
+  @defineSyntax / @delimiter { simpleToken DefineSyntax }
+  @letrecSyntax / @delimiter { simpleToken LetrecSyntax }
   @set / @delimiter         { simpleToken Set }
   @if / @delimiter          { simpleToken If }
   @define / @delimiter      { simpleToken Define }

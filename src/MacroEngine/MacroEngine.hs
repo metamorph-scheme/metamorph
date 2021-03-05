@@ -36,18 +36,26 @@ makroengineBase name = case applySyntaxRules <$> Map.lookup name baseSyntax of
 makroengineDefine :: MetaNode -> (String, MetaNode -> MetaNode)
 makroengineDefine = parseDefineSyntax
 makroengineLet :: MetaNode -> [(String, MetaNode -> MetaNode)]
-makroengineLet = parseLetSyntax
+makroengineLet = parseLetSyntax parseBinding
+
+makroengineLetIdentifiers :: MetaNode -> [MetaNode]
+makroengineLetIdentifiers = parseLetSyntax getBindingIdentifier
 
 parseDefineSyntax :: MetaNode -> (String, MetaNode -> MetaNode)
 parseDefineSyntax (DefineSyntaxNode (IdentifierAtom name _) syntaxRules) = (name, applySyntaxRules syntaxRules)
 parseDefineSyntax _ = error "wrong syntax for define-syntax"
 
-parseLetSyntax :: MetaNode -> [(String, MetaNode -> MetaNode)]
-parseLetSyntax (ApplicationNode rule1 rules) = map parseBinding (rule1:rules)
+parseLetSyntax :: (MetaNode -> a) -> MetaNode -> [a]
+parseLetSyntax f (ApplicationNode rule1 rules) = map f (rule1:rules)
   -- rules is a 'transformer spec' in the standard
-  where
-    parseBinding (ApplicationNode (IdentifierAtom name _) [rule]) = (name, applySyntaxRules rule)
-    parseBinding _ = error "Invalid syntax binding in let-syntax expression"
+
+parseBinding :: MetaNode -> (String, MetaNode -> MetaNode)
+parseBinding (ApplicationNode (IdentifierAtom name _) [rule]) = (name, applySyntaxRules rule)
+parseBinding _ = error "Invalid syntax binding in let-syntax expression"
+
+getBindingIdentifier :: MetaNode -> MetaNode
+getBindingIdentifier (ApplicationNode ident@(IdentifierAtom _ _) [_]) = ident
+getBindingIdentifier _ = error "Invalid syntax binding in let-syntax expression"
 
 -- *** macro core ***
 
@@ -245,6 +253,11 @@ identifierLabelTable (TemplateListNode xs) = xs >>= identifierLabelTable
 identifierLabelTable (TemplateImproperListNode xs) = xs >>= identifierLabelTable
 identifierLabelTable (TemplateLambdaNode a b c) = (a >>= identifierLabelTable) ++ identifierLabelTable b ++ (c >>= identifierLabelTable)
 identifierLabelTable (TemplateIfNode a b c) = identifierLabelTable a ++ identifierLabelTable b ++ identifierLabelTable c
+identifierLabelTable (TemplateDefineNode a b) = identifierLabelTable a ++ identifierLabelTable b
+identifierLabelTable (TemplateSetNode a b) = identifierLabelTable a ++ identifierLabelTable b
+identifierLabelTable (TemplateLetSyntaxNode a b) = identifierLabelTable a ++ (b >>= identifierLabelTable)
+identifierLabelTable (TemplateLetrecSyntaxNode a b) = identifierLabelTable a ++ (b >>= identifierLabelTable)
+identifierLabelTable (TemplateDefineSyntaxNode a b) = identifierLabelTable a ++ identifierLabelTable b
 identifierLabelTable ident@(TemplateIdentifierAtom path _ _) = [(path, ident)]
 identifierLabelTable ellipsis@(TemplateEllipsisNode count path _) = [(path, ellipsis)]
 identifierLabelTable _ = []

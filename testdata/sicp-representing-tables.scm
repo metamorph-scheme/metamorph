@@ -4,5 +4,5 @@
       (let ((record (assoc key-2 (cdr subtable))))
         (if record
           (cdr record)
-          false))
-    false)))
+          #f))
+    #f)))
