@@ -1,7 +1,6 @@
 module SemanticAnalysis.SemanticAnalysis (
     semanticAnalysis
 ) where
-import Debug.Trace
 import Control.Monad.State.Lazy
 import Common.Number
 import SemanticAnalysis.MetaNode'
