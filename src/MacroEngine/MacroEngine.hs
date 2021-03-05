@@ -245,6 +245,11 @@ identifierLabelTable (TemplateListNode xs) = xs >>= identifierLabelTable
 identifierLabelTable (TemplateImproperListNode xs) = xs >>= identifierLabelTable
 identifierLabelTable (TemplateLambdaNode a b c) = (a >>= identifierLabelTable) ++ identifierLabelTable b ++ (c >>= identifierLabelTable)
 identifierLabelTable (TemplateIfNode a b c) = identifierLabelTable a ++ identifierLabelTable b ++ identifierLabelTable c
+identifierLabelTable (TemplateDefineNode a b) = identifierLabelTable a ++ identifierLabelTable b
+identifierLabelTable (TemplateSetNode a b) = identifierLabelTable a ++ identifierLabelTable b
+identifierLabelTable (TemplateLetSyntaxNode a b) = identifierLabelTable a ++ (b >>= identifierLabelTable)
+identifierLabelTable (TemplateLetrecSyntaxNode a b) = identifierLabelTable a ++ (b >>= identifierLabelTable)
+identifierLabelTable (TemplateDefineSyntaxNode a b) = identifierLabelTable a ++ identifierLabelTable b
 identifierLabelTable ident@(TemplateIdentifierAtom path _ _) = [(path, ident)]
 identifierLabelTable ellipsis@(TemplateEllipsisNode count path _) = [(path, ellipsis)]
 identifierLabelTable _ = []
