@@ -13,7 +13,7 @@ parseNumberE :: String -> Either ParseError Token
 parseNumberE s = parse numberParser "Number" s
 
 numberParser :: Parsec String st Token
-numberParser = Number <$> (exactnessParser <*> (try (realParser 10) <|> integerParser 10)) <* char '\0'
+numberParser = Number <$> (exactnessParser <*> (try rationalParser <|> try (realParser 10) <|> integerParser 10)) <* char '\0'
 
 signParser :: (Num a) => Parsec String st (a -> a)
 signParser = optionalParser positive $ positive <$ char '+' <|> negative <$ char '-'
@@ -33,8 +33,10 @@ uintegerParser 10 = read <$> many1 digit
 --uintegerParser 16 = (fst . head . readHex) <$> many1 hexDigit
 
 realParser :: Int -> Parsec String st N.NumVal
-realParser 10 = N.Real <$> (try (N.InfReal <$> (signParser <*> (try rationalParser <|> decimalParser ))) <|> infnanParser)
-  where rationalParser = (/) <$> uintegerParser 10 <* char '/' <*> uintegerParser 10
+realParser 10 = N.Real <$> (try (N.InfReal <$> (signParser <*> decimalParser)) <|> infnanParser)
+
+rationalParser :: Parsec String st N.NumVal
+rationalParser = N.Rational <$> (signParser <*> uintegerParser 10) <* char '/' <*> uintegerParser 10
 
 infnanParser :: Parsec String st N.InfReal
 infnanParser = try (N.PositiveInfinity <$ string "+inf.0")

@@ -9,5 +9,7 @@ preamble = "#include <stdio.h> \n\
 \#include \"dyntypes.h\" \n\
 \#include \"lambda.h\" \n\
 \#include \"continuation.h\" \n\
-\#include \"common.h\""
+\#include \"common.h\" \n\
+\#include \"primf.h\" \n\
+\#include \"activations.h\"\n\n\n"
 

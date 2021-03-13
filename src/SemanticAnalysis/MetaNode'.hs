@@ -32,7 +32,7 @@ data MetaNode' = BodyNode' Int [MetaNode'] -- Number of Bodyparams, only generat
 
   
 data SymbolTable = Activation [(String, Int)] SymbolTable
-    | Syntax [(String, MetaNode -> MetaNode)]  SymbolTable
+    | Syntax [(String, MetaNode -> MetaNode)] SymbolTable
     | Scope Int SymbolTable
     | Global
 
