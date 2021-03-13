@@ -112,7 +112,7 @@ spec = describe "Lexer.scan" $ do
   
   describe "ureal" $ do
     it "can classify ureal" $ do
-      scan "4/2 " `shouldBe` [ Number . Inexact . Real $ InfReal 2 ]
+      scan "4/2 " `shouldBe` [ Number . Inexact $ Rational 4 2 ]
   
   describe "real" $ do
     it "can classify real" $ do
