@@ -1,0 +1,1 @@
+(write-string (current-output-port) "Hello World!")

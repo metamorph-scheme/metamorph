@@ -25,7 +25,9 @@ dependencies:
 - containers
 - parsec
 - mtl
-
+- argparser
+- shelly
+- process
 
 library:
   source-dirs: src

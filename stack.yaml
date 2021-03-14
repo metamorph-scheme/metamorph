@@ -64,3 +64,5 @@ packages:
 #
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor
+extra-deps:
+ - argparser-0.3.4@sha256:f277e6d568e88f0698a0ce1f2dc719d90717ffe99c8622302f65389f2a8ed01c,1952

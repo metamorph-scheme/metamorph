@@ -13,3 +13,4 @@ preamble = "#include <stdio.h> \n\
 \#include \"primf.h\" \n\
 \#include \"activations.h\"\n\n\n"
 
+postscriptum = "\n\nEND\n"

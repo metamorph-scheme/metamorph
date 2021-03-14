@@ -5,6 +5,7 @@ import Control.Monad.State.Lazy
 import Common.Number
 import Data.List
 import CodeGeneration.Snippets
+import CodeGeneration.BaseFunctions
 
 newline :: String
 newline = "\n"
@@ -71,13 +72,15 @@ data Expression = Function Integer
   | SetBound Integer Integer 
   | SetGlobal Integer
   | Start Integer
+  | BaseFunction String Integer
   | Exit deriving (Show, Eq)
 
 generate :: MetaNode' -> String
 generate mn =
   preamble ++
   main ++
-  functions
+  functions ++
+  postscriptum
     where
       main = unlines . map renderExpression $ mainE
       functions = unlines . concat . map (map renderExpression) $ functionsE
@@ -87,12 +90,13 @@ renderExpression :: Expression -> String
 renderExpression = renderExpression'
   where
     renderExpression' (Function num) = "FUNCTION(" ++ show num ++ ")"
-    renderExpression' (Bound parent num) = "BOUND(" ++ show parent ++ "," ++ show num ++ ")"
-    renderExpression' (Lambda pnum num) = "LAMBDA(" ++ show pnum ++ "," ++ show num ++ ")"
-    renderExpression' (GlobalBound num) = "GLOBAL(" ++ show num ++ ")"
+    --renderExpression' (Bound parent num) = "BOUND(" ++ show parent ++ "," ++ show num ++ ")"
+    renderExpression' (Lambda pnum num) = "PUSH_LITERAL(LAMBDA(" ++ show pnum ++ "," ++ show num ++ "))"
+    --renderExpression' (GlobalBound num) = "GLOBAL_BOUND(" ++ show num ++ ")"
     renderExpression' (Return) = "RETURN"
     renderExpression' (Applicate pnum fnum) = "APPLICATE(" ++ show pnum ++ "," ++ show fnum ++ ")"
-    renderExpression' (TailApplicate fnum) = "TAIL_APPLICATE(" ++ show fnum ++ ")"
+    renderExpression' (TailApplicate pnum) = "TAIL_APPLICATE(" ++ show pnum ++ ")"
+    renderExpression' (BaseFunction name pnum) = name ++ "(" ++ show pnum ++ ");"
     renderExpression' (Push obj) = "PUSH(" ++ code obj ++ ")"
     renderExpression' (PushLiteral obj) = "PUSH_LITERAL(" ++ code obj ++ ")"
     renderExpression' (Pop) = "POP"
@@ -108,8 +112,12 @@ generateMainCode :: MetaNode'-> ([Expression], [[Expression]])
 generateMainCode (BodyNode' dnum body) = combineCode ([Start (toInteger dnum)], []) (combineCode (generateCodeList [] body) ([Exit], []))
 
 generateCode :: [Integer] -> MetaNode'-> ([Expression], [[Expression]])
+generateCode n (ApplicationNode' _ (BaseFunctionAtom' name) params) = 
+    combineCode (generateCodeList n params) ([BaseFunction (baseFunction name) (toInteger (length params))], [])
 generateCode n (ApplicationNode' False expr params) = 
-    combineCode (generateCodeList n params) (generateCode (n++[0]) expr)
+    combineCode (combineCode (generateCodeList n params) (generateCode (n++[0]) expr)) ([Applicate (toInteger (length params)) (renderPath n)], [])
+generateCode n (ApplicationNode' True expr params) = 
+    combineCode (combineCode (generateCodeList n params) (generateCode (n++[0]) expr)) ([TailApplicate (toInteger (length params))], [])
 -- TODO variadic flag?
 generateCode n (LambdaNode' paramNr variadic (BodyNode' defNr body)) = case generateCodeList n body of
   (exprs, lambdas) -> ([Lambda (toInteger paramNr) (renderPath n)], lambdas ++ [[Function (renderPath n), Body (toInteger defNr)] ++ exprs ++ [Return, BodyClose]])
@@ -122,6 +130,7 @@ generateCode _ obj = ([operation (toObject obj)], [])
     generatedObj@Object{ registered = registered } = toObject obj
 
 generateCodeList :: [Integer] -> [MetaNode'] -> ([Expression], [[Expression]])
+generateCodeList n [] = ([],[])
 generateCodeList n xs = foldl1 combineCode (zipWith generate xs [1..])
   where generate mn index = generateCode (n ++ [index]) mn
 
@@ -135,6 +144,7 @@ toObject :: MetaNode' -> Object
 toObject (BoolAtom' True) = Object { code = "scheme_new_boolean(TRUE)", registered = False }
 toObject (BoolAtom' False) = Object { code = "scheme_new_boolean(FALSE)", registered = False }
 toObject (EmptyAtom') = Object { code = "SCHEME_NULL", registered = False }
+toObject (StringAtom' str) = Object { code = "scheme_new_string(\"" ++ str ++ "\")", registered = False }
 toObject (NumberAtom' (Exact (Integer int))) = Object { 
     code = "scheme_new_number(scheme_exact_integer(integer_create((char[]) " ++ arrayString ++ ", " ++ show len ++ ")))",
     registered = False 
@@ -156,7 +166,7 @@ toObject (NumberAtom' (Inexact (Integer int))) = Object { code = "scheme_new_num
 toObject (NumberAtom' (Inexact (Real (InfReal double)))) = Object { code = "scheme_new_number(scheme_inexact_real(" ++ show double ++ "d))", registered = False }
 toObject (NumberAtom' (Inexact (Real _))) = error "infinities are not supported"
 toObject (BoundAtom' parent num) = Object { code = "BOUND(" ++ show parent ++ "," ++ show num ++ ")", registered = True }
-toObject (GlobalAtom' num) = Object { code = "GLOBAL(" ++ show num ++ ")", registered = True }
+toObject (GlobalAtom' num) = Object { code = "GLOBAL_BOUND(" ++ show num ++ ")", registered = True }
 
 integerToArrayString = bytesToArrayString . integerToBytes
 
