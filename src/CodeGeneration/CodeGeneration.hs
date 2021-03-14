@@ -6,6 +6,8 @@ import Common.Number
 import Data.List
 import CodeGeneration.Snippets
 import CodeGeneration.BaseFunctions
+import qualified Data.Map as M
+import Data.Maybe (fromMaybe, fromJust)
 
 newline :: String
 newline = "\n"
@@ -54,47 +56,53 @@ data Object = Object { code :: String, registered :: Bool } deriving (Show, Eq)
 -- due to the way c function parameters are effectively bypassed with the stack
 -- and incorrect applications aren't C99 errors anymore.
 
-
 -- Lambda is changed to PUSH_LITERAL when rendering to String
-data Expression = Function Integer 
-  | Bound Integer Integer 
-  | GlobalBound Integer 
+data Expression = Function Path 
+  | Bound Int Int 
+  | GlobalBound Int 
   | Return 
-  | Applicate Integer Integer 
-  | TailApplicate Integer 
+  | Applicate Int Path 
+  | TailApplicate Int 
   | Push Object 
   | PushLiteral Object 
   | Pop 
   | PopLiteral 
-  | Body Integer 
+  | Body Int 
   | BodyClose 
-  | Lambda Integer Integer 
-  | SetBound Integer Integer 
-  | SetGlobal Integer
-  | Start Integer
-  | BaseFunction String Integer
+  | Lambda Bool Path Int 
+  | Continuation Path
+  | SetBound Int Int 
+  | SetGlobal Int
+  | Start Int
+  | BaseFunction String Int
+  | If
+  | Else
+  | EndIf
   | Exit deriving (Show, Eq)
+
+type Program = ([Expression], [[Expression]])
+data Path = Path [Int] | ResolvedPath Int deriving (Show, Eq, Ord)
 
 generate :: MetaNode' -> String
 generate mn =
   preamble ++
-  main ++
-  functions ++
+  renderedProgram ++
   postscriptum
     where
-      main = unlines . map renderExpression $ mainE
-      functions = unlines . concat . map (map renderExpression) $ functionsE
+      renderedProgram = unlines . map renderExpression . resolvePaths $ program
+      program = mainE ++ concat functionsE
       (mainE, functionsE) = generateMainCode mn
 
 renderExpression :: Expression -> String
 renderExpression = renderExpression'
   where
-    renderExpression' (Function num) = "FUNCTION(" ++ show num ++ ")"
+    renderExpression' (Function (ResolvedPath num)) = "FUNCTION(" ++ show num ++ ")"
     --renderExpression' (Bound parent num) = "BOUND(" ++ show parent ++ "," ++ show num ++ ")"
-    renderExpression' (Lambda pnum num) = "PUSH_LITERAL(LAMBDA(" ++ show pnum ++ "," ++ show num ++ "))"
+    renderExpression' (Lambda variadic (ResolvedPath num) pnum) = "PUSH_LITERAL(" ++ if variadic then "LAMBDA_VARIADIC" else "LAMBDA" ++ "(" ++ show num ++ "," ++ show pnum ++ "))"
+    renderExpression' (Continuation (ResolvedPath num)) = "PUSH_LITERAL(CONTINUATION(" ++ show num ++ "))"
     --renderExpression' (GlobalBound num) = "GLOBAL_BOUND(" ++ show num ++ ")"
     renderExpression' (Return) = "RETURN"
-    renderExpression' (Applicate pnum fnum) = "APPLICATE(" ++ show pnum ++ "," ++ show fnum ++ ")"
+    renderExpression' (Applicate pnum (ResolvedPath num)) = "APPLICATE(" ++ show pnum ++ "," ++ show num ++ ")"
     renderExpression' (TailApplicate pnum) = "TAIL_APPLICATE(" ++ show pnum ++ ")"
     renderExpression' (BaseFunction name pnum) = name ++ "(" ++ show pnum ++ ");"
     renderExpression' (Push obj) = "PUSH(" ++ code obj ++ ")"
@@ -107,38 +115,122 @@ renderExpression = renderExpression'
     renderExpression' (SetGlobal num) = "SET_GLOBAL_BOUND(" ++ show num ++ ")"
     renderExpression' (Start dnum) = "START(" ++ show dnum ++ ")"
     renderExpression' (Exit) = "EXIT"
+    renderExpression' (If) = "{ dyntype_t tmp = POP; REQUIRE_SCHEME_BOOLEAN(tmp,0); PUSH(tmp)} if (*(POP.data.boolean_val)) {"
+    renderExpression' (Else) = "} else {"
+    renderExpression' (EndIf) = "}"
 
-generateMainCode :: MetaNode'-> ([Expression], [[Expression]])
-generateMainCode (BodyNode' dnum body) = combineCode ([Start (toInteger dnum)], []) (combineCode (generateCodeList [] body) ([Exit], []))
+generateMainCode :: MetaNode'-> Program
+generateMainCode (BodyNode' dnum body) = combineProgram ([Start dnum], []) (combineProgram (generateCodeList (Path []) body) ([Exit], []))
 
-generateCode :: [Integer] -> MetaNode'-> ([Expression], [[Expression]])
+generateCode :: Path -> MetaNode'-> Program
+-- TODO make DRY
+generateCode n (ApplicationNode' _ (BaseFunctionAtom' "call/cc") [l@(LambdaNode' 1 False (BodyNode' defNr body))]) = 
+    combinePrograms [
+      staticProgram [Continuation n],
+      generateCode n l,
+      staticProgram [Applicate 1 n]
+    ]
+generateCode n (ApplicationNode' _ (BaseFunctionAtom' "call-with-current-continuation") [l@(LambdaNode' 1 False (BodyNode' defNr body))]) = 
+    combinePrograms [
+      staticProgram [Continuation n],
+      generateCode n l,
+      staticProgram [Applicate 1 n]
+    ]
 generateCode n (ApplicationNode' _ (BaseFunctionAtom' name) params) = 
-    combineCode (generateCodeList n params) ([BaseFunction (baseFunction name) (toInteger (length params))], [])
+    combinePrograms [
+      generateCodeList n params,
+      staticProgram [BaseFunction (baseFunction name) (length params)]
+    ]
 generateCode n (ApplicationNode' False expr params) = 
-    combineCode (combineCode (generateCodeList n params) (generateCode (n++[0]) expr)) ([Applicate (toInteger (length params)) (renderPath n)], [])
+    combinePrograms [
+      generateCodeList n params,
+      generateCode (appendPath 0 n) expr,
+      staticProgram [Applicate (length params) n]
+    ]
 generateCode n (ApplicationNode' True expr params) = 
-    combineCode (combineCode (generateCodeList n params) (generateCode (n++[0]) expr)) ([TailApplicate (toInteger (length params))], [])
--- TODO variadic flag?
-generateCode n (LambdaNode' paramNr variadic (BodyNode' defNr body)) = case generateCodeList n body of
-  (exprs, lambdas) -> ([Lambda (toInteger paramNr) (renderPath n)], lambdas ++ [[Function (renderPath n), Body (toInteger defNr)] ++ exprs ++ [Return, BodyClose]])
-generateCode n (SetNode' (BoundAtom' parent num) expr) = combineCode (generateCode n expr) ([SetBound (toInteger parent) (toInteger num)], [])
-generateCode n (SetNode' (GlobalAtom' num) expr) = combineCode (generateCode n expr) ([SetGlobal (toInteger num)], [])
-generateCode n (BodyNode' defNr body) = combineCode (combineCode ([Body (toInteger defNr)], []) (generateCodeList n body)) ([Return, BodyClose], [])
-generateCode _ obj = ([operation (toObject obj)], [])
+    combinePrograms [
+      generateCodeList n params,
+      generateCode (appendPath 0 n) expr,
+      staticProgram [TailApplicate (length params)]
+    ]
+generateCode n (LambdaNode' paramNr variadic (BodyNode' defNr body)) 
+  | defNr > 0 = case generateCodeList n body of
+    (exprs, lambdas) -> (
+        [Lambda variadic n paramNr],
+        lambdas ++ [[Function n, Body defNr] ++ exprs ++ [Return, BodyClose]]
+      )
+  | otherwise = case generateCodeList n body of
+    (exprs, lambdas) -> (
+        [Lambda variadic n paramNr],
+        lambdas ++ [[Function n] ++ exprs ++ [Return]]
+      )
+generateCode n (SetNode' (BoundAtom' parent num) expr) = 
+  combinePrograms [
+    generateCode n expr,
+    staticProgram [SetBound parent num]
+  ]
+generateCode n (SetNode' (GlobalAtom' num) expr) = 
+  combinePrograms [
+    generateCode n expr,
+    staticProgram [SetGlobal num]
+  ]
+-- TODO one branch if with return unspecified
+generateCode n (IfNode' condition then' else') = 
+  combinePrograms [
+    generateCode (appendPath 0 n) condition,
+    staticProgram [If],
+    generateCode (appendPath 1 n) then',
+    staticProgram [Else],
+    generateCode (appendPath 2 n) else',
+    staticProgram [EndIf]
+  ]
+generateCode n (BodyNode' defNr body) = 
+  combinePrograms [
+    staticProgram [Body defNr],
+    generateCodeList n body,
+    staticProgram [Return, BodyClose]
+  ]
+generateCode _ obj = staticProgram [operation (toObject obj)]
   where
     operation = if registered then Push else PushLiteral
     generatedObj@Object{ registered = registered } = toObject obj
 
-generateCodeList :: [Integer] -> [MetaNode'] -> ([Expression], [[Expression]])
-generateCodeList n [] = ([],[])
-generateCodeList n xs = foldl1 combineCode (zipWith generate xs [1..])
-  where generate mn index = generateCode (n ++ [index]) mn
+generateCodeList :: Path -> [MetaNode'] -> Program
+generateCodeList n xs = combinePrograms (zipWith generate xs [1..])
+  where generate mn index = generateCode (appendPath index n) mn
 
-combineCode :: ([Expression], [[Expression]]) -> ([Expression], [[Expression]]) -> ([Expression], [[Expression]])
-combineCode (ea, la) (eb, lb) = (ea ++ eb, la ++ lb)
+emptyProgram :: Program
+emptyProgram = ([],[])
 
-renderPath :: [Integer] -> Integer
-renderPath = read . concat . map show
+staticProgram :: [Expression] -> Program
+staticProgram e = (e, [])
+
+combineProgram :: Program -> Program -> Program
+combineProgram (ea, la) (eb, lb) = (ea ++ eb, la ++ lb)
+
+combinePrograms :: [Program] -> Program
+combinePrograms [] = emptyProgram
+combinePrograms xs = foldl1 combineProgram xs
+
+resolvePaths :: [Expression] -> [Expression]
+resolvePaths exprs = map resolvePath exprs
+  where
+    resolvePath (Applicate a path) = Applicate a (fromJust (M.lookup path lookupMap))
+    resolvePath (Lambda a path b) = Lambda a (fromJust (M.lookup path lookupMap)) b
+    resolvePath (Continuation path) = Continuation (fromJust (M.lookup path lookupMap))
+    resolvePath (Function path) = Function (fromJust (M.lookup path lookupMap))
+    resolvePath other = other
+    lookupMap = fst . foldl folder (M.empty,1) $ exprs
+    folder acc@(map, index) expr = if M.member path map then acc else (M.insert path (ResolvedPath index) map, index + 1)
+      where path = extractPath expr
+    extractPath (Applicate _ path) = path
+    extractPath (Lambda _ path _) = path
+    extractPath (Continuation path) = path
+    extractPath (Function path) = path
+    extractPath other = Path []
+
+appendPath :: Int -> Path -> Path
+appendPath n (Path xs)= (Path (xs ++ [n]))
 
 toObject :: MetaNode' -> Object
 toObject (BoolAtom' True) = Object { code = "scheme_new_boolean(TRUE)", registered = False }
