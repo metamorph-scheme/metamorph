@@ -13,3 +13,5 @@
 (test 1 4 3 5 1 "String")
 (set! test fac)
 (test 2)
+(define cond)
+(if (= cond #t) (* 1 1))

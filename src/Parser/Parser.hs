@@ -132,7 +132,7 @@ parseIf = do
         return (IfNode p a b) 
     else do
         pullEq "If" PClose
-        return (IfNode p a (BoolAtom False)))
+        return (IfNode p a (BoolAtom False))
 
 parseSet :: State [Token] MetaNode
 parseSet = do
@@ -152,11 +152,11 @@ parseDefine = do
     case t of 
         (Identifier str) -> do
             p <- peek "Define"
-            if p /= PClose then
+            if p /= PClose then do
                 e <- parseExpression "Define Body"
                 pullEq "Define" PClose
                 return (DefineNode (IdentifierAtom str 0) e)
-            else 
+            else do
                 pullEq "Define" PClose
                 return (DefineNode (IdentifierAtom str 0) (BoolAtom False))
         POpen -> parseDefineFunction
