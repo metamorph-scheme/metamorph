@@ -56,4 +56,4 @@ n11 = [DefineNode (IdentifierAtom "func" 0) (LambdaNode [IdentifierAtom "x" 0,Id
     [IdentifierAtom "x" 0,ApplicationNode (IdentifierAtom "len" 0) [IdentifierAtom "z" 0]],ApplicationNode 
     (IdentifierAtom "*" 0) [IdentifierAtom "y" 0,ApplicationNode (IdentifierAtom "len" 0) [IdentifierAtom "z" 0]]]])]
 n12 = [IfNode (ApplicationNode (IdentifierAtom "Eq" 0) [BoolAtom True,BoolAtom False]) 
-    (SetNode (IdentifierAtom "x" 0) (NumberAtom (Exact (Integer 0)))) (BoolAtom False)]
+    (SetNode (IdentifierAtom "x" 0) (NumberAtom (Exact (Integer 0)))) UnspecifiedAtom]

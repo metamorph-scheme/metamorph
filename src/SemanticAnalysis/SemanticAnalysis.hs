@@ -128,6 +128,7 @@ annotateExpression EmptyAtom _ = return $ EmptyAtom'
 annotateExpression (StringAtom cs) _ = return $ StringAtom' cs
 annotateExpression (BoolAtom b) _ = return $ BoolAtom' b
 annotateExpression (CharAtom c) _ = return $ CharAtom' c
+annotateExpression UnspecifiedAtom _ = return $ UnspecifiedAtom'
 -- Internal defines OUTSIDE of a body have no meaning
 annotateExpression (DefineNode _ _) _ =  error "No define allowed in current context"
 annotateExpression (DefineSyntaxNode _ _) _ = error "No define-syntax allowed in current context"
@@ -180,6 +181,7 @@ injectName (IdentifierAtom str n) EmptyAtom  = EmptyAtom
 injectName (IdentifierAtom str n) (StringAtom cs) = StringAtom cs
 injectName (IdentifierAtom str n) (BoolAtom b) = BoolAtom b
 injectName (IdentifierAtom str n) (CharAtom c) = CharAtom c
+injectName (IdentifierAtom str n) UnspecifiedAtom = UnspecifiedAtom
 
 
 -- Makro params need to be annotated
