@@ -1,4 +1,4 @@
-module CodeGeneration.CodeGeneration (generate) where
+module CodeGeneration.CodeGeneration (generate, generateCode) where
 
 import SemanticAnalysis.MetaNode'
 import Control.Monad.State.Lazy
@@ -54,7 +54,7 @@ data Object = Object { code :: String, registered :: Bool } deriving (Show, Eq)
 -- time errors in Metamorph and not the C compiler
 -- ! this is obsolete, base function parameter errors are now runtime-concerns
 -- due to the way c function parameters are effectively bypassed with the stack
--- and incorrect applications aren't C99 errors anymore.
+-- and incorrect applications aren't C99 errors anymore.3
 
 -- Lambda is changed to PUSH_LITERAL when rendering to String
 data Expression = Function Path 
@@ -124,32 +124,32 @@ generateMainCode (BodyNode' dnum body) = combineProgram ([Start dnum], []) (comb
 
 generateCode :: Path -> MetaNode'-> Program
 -- TODO make DRY
-generateCode n (ApplicationNode' _ (BaseFunctionAtom' "call/cc") [l@(LambdaNode' 1 False (BodyNode' defNr body))]) = 
+generateCode n (ApplicationNode' _ (BaseFunctionAtom' "call/cc") [expr]) = 
     combinePrograms [
       staticProgram [Continuation n],
-      generateCode n l,
+      generateCode n expr,
       staticProgram [Applicate 1 n]
     ]
-generateCode n (ApplicationNode' _ (BaseFunctionAtom' "call-with-current-continuation") [l@(LambdaNode' 1 False (BodyNode' defNr body))]) = 
+generateCode n (ApplicationNode' _ (BaseFunctionAtom' "call-with-current-continuation") [expr]) = 
     combinePrograms [
       staticProgram [Continuation n],
-      generateCode n l,
+      generateCode n expr,
       staticProgram [Applicate 1 n]
     ]
 generateCode n (ApplicationNode' _ (BaseFunctionAtom' name) params) = 
     combinePrograms [
-      generateCodeList n params,
+      generateCodeList n (reverse params),
       staticProgram [BaseFunction (baseFunction name) (length params)]
     ]
 generateCode n (ApplicationNode' False expr params) = 
     combinePrograms [
-      generateCodeList n params,
+      generateCodeList n (reverse params),
       generateCode (appendPath 0 n) expr,
       staticProgram [Applicate (length params) n]
     ]
 generateCode n (ApplicationNode' True expr params) = 
     combinePrograms [
-      generateCodeList n params,
+      generateCodeList n (reverse params),
       generateCode (appendPath 0 n) expr,
       staticProgram [TailApplicate (length params)]
     ]
