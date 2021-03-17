@@ -132,7 +132,7 @@ parseIf = do
         return (IfNode p a b) 
     else do
         pullEq "If" PClose
-        return (IfNode p a (IdentifierAtom "" 0))
+        return (IfNode p a UnspecifiedAtom)
 
 parseSet :: State [Token] MetaNode
 parseSet = do
@@ -151,9 +151,14 @@ parseDefine = do
     t <- pull "Define"
     case t of 
         (Identifier str) -> do
-            e <- parseExpression "Define Body"
-            pullEq "Define" PClose
-            return (DefineNode (IdentifierAtom str 0) e)
+            p <- peek "Define"
+            if p /= PClose then do
+                e <- parseExpression "Define Body"
+                pullEq "Define" PClose
+                return (DefineNode (IdentifierAtom str 0) e)
+            else do
+                pullEq "Define" PClose
+                return (DefineNode (IdentifierAtom str 0) UnspecifiedAtom)
         POpen -> parseDefineFunction
         _ -> error "Expected Identifier oder Parantheses as first argument of define"
 

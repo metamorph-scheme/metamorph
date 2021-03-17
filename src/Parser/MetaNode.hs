@@ -4,6 +4,7 @@ import Common.Number
 data MetaNode = LambdaNode [MetaNode] MetaNode [MetaNode]
     | PairNode MetaNode MetaNode 
     | NumberAtom Number 
+    | UnspecifiedAtom
     | EmptyAtom 
     | StringAtom String 
     | BoolAtom Bool 

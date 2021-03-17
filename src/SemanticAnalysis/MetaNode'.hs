@@ -17,6 +17,7 @@ data MetaNode' = BodyNode' Int [MetaNode'] -- Number of Bodyparams, only generat
     | PairNode' MetaNode' MetaNode' 
     | NumberAtom' Number 
     | EmptyAtom' 
+    | UnspecifiedAtom'
     | StringAtom' String 
     | BoolAtom' Bool 
     | CharAtom' Char
@@ -48,6 +49,7 @@ instance Show MetaNode' where
     show (PairNode' mn' mn2') = "Pair: " ++ show (mn',mn2') 
     show (NumberAtom' n) = show n
     show (EmptyAtom') = "Empty"
+    show (UnspecifiedAtom') = "Unspecified"
     show (StringAtom' str) = show str
     show (BoolAtom' b) = show b
     show (CharAtom' c) = show c
