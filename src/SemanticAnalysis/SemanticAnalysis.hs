@@ -126,6 +126,7 @@ annotateExpression (SetNode _ _) _ = error "Expected identifier as first argumen
 annotateExpression (NumberAtom n) _ = return $ NumberAtom' n
 annotateExpression EmptyAtom _ = return $ EmptyAtom'
 annotateExpression (StringAtom cs) _ = return $ StringAtom' cs
+annotateExpression (SymbolAtom cs) _ = return $ SymbolAtom' cs
 annotateExpression (BoolAtom b) _ = return $ BoolAtom' b
 annotateExpression (CharAtom c) _ = return $ CharAtom' c
 annotateExpression UnspecifiedAtom _ = return $ UnspecifiedAtom'
@@ -179,6 +180,7 @@ injectName (IdentifierAtom str n) (IdentifierAtom str' n')
 injectName (IdentifierAtom str n) (NumberAtom z) = NumberAtom z
 injectName (IdentifierAtom str n) EmptyAtom  = EmptyAtom
 injectName (IdentifierAtom str n) (StringAtom cs) = StringAtom cs
+injectName (IdentifierAtom str n) (SymbolAtom cs) = SymbolAtom cs
 injectName (IdentifierAtom str n) (BoolAtom b) = BoolAtom b
 injectName (IdentifierAtom str n) (CharAtom c) = CharAtom c
 injectName (IdentifierAtom str n) UnspecifiedAtom = UnspecifiedAtom

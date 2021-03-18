@@ -10,6 +10,7 @@
         ident))
 (define (q x . y) (append x y))
 (define (test x y . z) (cons (+ x y) z))
+(define n_list `(Hallo ich bin eine Liste ,(* 2 (fac 7))))
 (test 1 4 3 5 1 "String")
 (set! test fac)
 (test 2)

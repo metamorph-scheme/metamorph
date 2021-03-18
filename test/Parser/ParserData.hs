@@ -33,17 +33,17 @@ n1 = [ApplicationNode (IdentifierAtom "+" 0) [BoolAtom True,BoolAtom True]]
 n2 = [ApplicationNode (LambdaNode [IdentifierAtom "x" 0,IdentifierAtom "y" 0] 
     (IdentifierAtom "z" 0) [ApplicationNode (IdentifierAtom "/" 0) [IdentifierAtom "x" 0,
     IdentifierAtom "y" 0]]) [BoolAtom True,BoolAtom True,BoolAtom True,StringAtom "sdf"]]
-n3 = [PairNode (IdentifierAtom "*" 0 ) (PairNode (BoolAtom True) (PairNode (IdentifierAtom "a" 0 ) EmptyAtom))]
-n4 =[PairNode (IdentifierAtom "*" 0 ) (PairNode (BoolAtom True) (PairNode (PairNode (BoolAtom True) 
-    (PairNode (BoolAtom True) EmptyAtom)) (PairNode (IdentifierAtom "a" 00) EmptyAtom)))]
-n5 =[PairNode (IdentifierAtom "*" 0 ) (PairNode (BoolAtom True) (PairNode (ApplicationNode (IdentifierAtom "+" 0) 
-    [BoolAtom True,IdentifierAtom "PI" 0]) (PairNode (IdentifierAtom "t" 0 ) EmptyAtom)))]
+n3 = [PairNode (SymbolAtom "*") (PairNode (BoolAtom True) (PairNode (SymbolAtom "a") EmptyAtom))]
+n4 =[PairNode (SymbolAtom "*") (PairNode (BoolAtom True) (PairNode (PairNode (BoolAtom True) 
+    (PairNode (BoolAtom True) EmptyAtom)) (PairNode (SymbolAtom "a") EmptyAtom)))]
+n5 =[PairNode (SymbolAtom "*") (PairNode (BoolAtom True) (PairNode (ApplicationNode (IdentifierAtom "+" 0) 
+    [BoolAtom True,IdentifierAtom "PI" 0]) (PairNode (SymbolAtom "t") EmptyAtom)))]
 n6 = [IfNode (IdentifierAtom "p" 0 ) (ApplicationNode (IdentifierAtom "*" 0 ) [BoolAtom True,BoolAtom True]) 
     (PairNode (BoolAtom True) (PairNode (BoolAtom True) EmptyAtom))]
 n7 = [SetNode (IdentifierAtom "x" 0) (LambdaNode [] (IdentifierAtom "arglist" 0) 
     [ApplicationNode (IdentifierAtom "length" 0) [IdentifierAtom "arglist" 0]])]
-n8 = [PairNode (IdentifierAtom "x" 0) (PairNode (ApplicationNode (IdentifierAtom "*" 0) 
-    [BoolAtom True,BoolAtom True]) (PairNode (PairNode (IdentifierAtom "c" 0) 
+n8 = [PairNode (SymbolAtom "x") (PairNode (ApplicationNode (IdentifierAtom "*" 0) 
+    [BoolAtom True,BoolAtom True]) (PairNode (PairNode (SymbolAtom "c") 
     (PairNode (BoolAtom True) (PairNode (BoolAtom True) (PairNode 
     (ApplicationNode (IdentifierAtom "+" 0) [BoolAtom True,BoolAtom True]) EmptyAtom)))) 
     EmptyAtom))]

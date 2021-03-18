@@ -19,6 +19,7 @@ data MetaNode' = BodyNode' Int [MetaNode'] -- Number of Bodyparams, only generat
     | EmptyAtom' 
     | UnspecifiedAtom'
     | StringAtom' String 
+    | SymbolAtom' String 
     | BoolAtom' Bool 
     | CharAtom' Char
     | BaseFunctionAtom' String
@@ -51,6 +52,7 @@ instance Show MetaNode' where
     show (EmptyAtom') = "Empty"
     show (UnspecifiedAtom') = "Unspecified"
     show (StringAtom' str) = show str
+    show (SymbolAtom' str) = str
     show (BoolAtom' b) = show b
     show (CharAtom' c) = show c
     show (BaseFunctionAtom' str) = "BaseFunction: " ++ show str 
