@@ -236,7 +236,9 @@ toObject :: MetaNode' -> Object
 toObject (BoolAtom' True) = Object { code = "scheme_new_boolean(TRUE)", registered = False }
 toObject (BoolAtom' False) = Object { code = "scheme_new_boolean(FALSE)", registered = False }
 toObject (EmptyAtom') = Object { code = "SCHEME_NULL", registered = False }
-toObject (StringAtom' str) = Object { code = "scheme_new_string(\"" ++ str ++ "\")", registered = False }
+toObject (UnspecifiedAtom') = Object { code = "SCHEME_UNSPECIFIED", registered = False }
+toObject (StringAtom' str) = Object { code = "scheme_new_string(\"" ++ (str >>= escape) ++ "\")", registered = False }
+toObject (SymbolAtom' str) = Object { code = "scheme_new_symbol(\"" ++ (str >>= escape) ++ "\")", registered = False }
 toObject (NumberAtom' (Exact (Integer int))) = Object { 
     code = "scheme_new_number(scheme_exact_integer(integer_create((char[]) " ++ arrayString ++ ", " ++ show len ++ ")))",
     registered = False 
@@ -281,6 +283,13 @@ bin :: Integer -> [Integer]
 bin 0 = [0]
 bin 1 = [1]
 bin x = (mod x 2) : (bin (div x 2))
+
+escape '\a' = "\\a"
+escape '\b' = "\\b"
+escape '\t' = "\\t"
+escape '\n' = "\\n"
+escape '\r' = "\\r"
+escape c = [c]
 
 -- (<start block>, <lambdas>)
 -- generate :: MetaNode' -> (String, [String])
