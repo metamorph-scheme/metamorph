@@ -216,6 +216,9 @@ parseQuotedDatum = do
         ShortQuote -> parseQuotedShortForm
         ShortUnquote -> parseQuotedShortForm
         ShortQuasiQuote -> parseQuotedShortForm
+        Identifier str -> do 
+            pull "Symbol"
+            return $ SymbolAtom str
         _ -> parseAtom
 
 parseQuotedCompoundDatum :: State [Token] MetaNode
@@ -260,6 +263,9 @@ parseQuasiQuotedDatum = do
             parseQuasiQuotedDatum
         ShortQuote -> parseQuasiQuotedShortForm
         ShortQuasiQuote -> parseQuasiQuotedShortForm
+        Identifier str -> do 
+            pull "Symbol"
+            return $ SymbolAtom str
         _ -> parseAtom
 
 parseQuasiQuotedCompoundDatum :: State [Token] MetaNode

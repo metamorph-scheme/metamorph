@@ -6,8 +6,9 @@ data MetaNode = LambdaNode [MetaNode] MetaNode [MetaNode]
     | NumberAtom Number 
     | UnspecifiedAtom
     | EmptyAtom 
-    | StringAtom String 
     | BoolAtom Bool 
+    | StringAtom String 
+    | SymbolAtom String 
     | CharAtom Char 
     | IdentifierAtom String Int -- Becomes Number Pair or Internal Enum
     | ApplicationNode MetaNode [MetaNode] 
