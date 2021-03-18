@@ -14,5 +14,20 @@ baseFunction = fromJust . (flip M.lookup) (M.fromList [
     ("newline", "newline"),
     ("write-char", "write_char"),
     ("write-string", "write_string"),
-    ("flush-output-port", "flush_output_port")
+    ("flush-output-port", "flush_output_port"),
+    ("string->symbol", "string_to_symbol"),
+    ("symbol->string", "symbol_to_string"),
+    ("symbol?", "symbol_q"),
+    ("symbol=?", "symbol_eq"),
+    ("not", "not"),
+    ("boolean?", "boolean_q"),
+    ("null?", "null_q"),
+    ("pair?", "pair_q"),
+    ("car", "car"),
+    ("cdr", "cdr"),
+    ("cons", "cons"),
+    ("list?", "list_q"),
+    ("list", "list"),
+    ("=", "num_eq"),
+    ("-", "sub")
   ])
