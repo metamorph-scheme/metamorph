@@ -106,10 +106,10 @@ spec = do
       parseNumber "#i3.131e2\0" `shouldSatisfy` (\(Number (Inexact (Real (InfReal n)))) -> abs(n - 313.1) < 0.000001)
 
     it "can parse rational" $ do
-      parseNumber "1/2\0" `shouldBe` (Number . Inexact . Real $ InfReal 0.5)
+      parseNumber "1/2\0" `shouldBe` (Number . Exact $ Rational 1 2)
 
     it "can parse inexact rational" $ do
-      parseNumber "#i1/2\0" `shouldBe` (Number . Inexact . Real $ InfReal 0.5)
+      parseNumber "#i1/2\0" `shouldBe` (Number . Inexact $ Rational 1 2)
 
   describe "parseString" $ do
 

@@ -12,7 +12,9 @@ getUnicodeEscapeCharacter s = chr . fst . head . readHex $ s
 inexactNumber :: NumVal -> Number
 inexactNumber n@(Integer _) = Inexact n
 inexactNumber n@(Real _) = Inexact n
+inexactNumber n@(Rational _ _) = Inexact n
 
 exactNumber :: NumVal -> Number
 exactNumber n@(Integer _) = Exact n
+exactNumber n@(Rational _ _) = Exact n
 exactNumber (Real _) = error "cannot make exact real"
