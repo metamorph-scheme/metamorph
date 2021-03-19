@@ -6,6 +6,8 @@
 (define (my-show str) (write-string str out))
 (define show-bool (compose my-show bool->string))
 (define my-newline (lambda () (newline out)))
+(define (number-to-string n) (number->string n))
+(define show-number (compose my-show number-to-string))
 
 ; Test to generate a number that is much larger than 32-bit C99 integers
 (show-bool (boolean? 429496729643443434235234543543225437697238645723984562983578412349346571028347695813092387412937490165))
@@ -19,6 +21,7 @@
       (cdr xs)))))
 
 (define my-list (cons 1 (cons 2 (cons 64345 ()))))
+(define my-list3 (list 1 2 3))
 
 (show-bool (= 1 (elem-at 0 my-list)))
 (my-newline)
@@ -30,4 +33,19 @@
 (my-newline)
 
 (show-bool (= 553 (elem-at 2 my-list)))
+(my-newline)
+
+(show-number (- 3/5 #i1/5))
+(my-newline)
+
+(show-number (+ 4 (/ 4) 645234523452345145234562345235623452356324152356))
+(my-newline)
+
+(show-bool (exact? (+ 4 (/ 4) 645234523452345145234562345235623452356324152356)))
+(my-newline)
+
+(show-bool (number? (+ 4 (/ 4) 645234523452345145234562345235623452356324152356)))
+(my-newline)
+
+(show-bool (integer? (+ 4 (/ 4) 645234523452345145234562345235623452356324152356)))
 (my-newline)
