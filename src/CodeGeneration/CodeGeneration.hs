@@ -115,7 +115,7 @@ renderExpression = renderExpression'
     renderExpression' (SetGlobal num) = "SET_GLOBAL_BOUND(" ++ show num ++ ")"
     renderExpression' (Start dnum) = "START(" ++ show dnum ++ ")"
     renderExpression' (Exit) = "EXIT"
-    renderExpression' (If) = "{ dyntype_t tmp = POP; REQUIRE_SCHEME_BOOLEAN(tmp,0); PUSH(tmp)} if (*(POP.data.boolean_val)) {"
+    renderExpression' (If) = "if (popif()) {"
     renderExpression' (Else) = "} else {"
     renderExpression' (EndIf) = "}"
 
@@ -135,11 +135,6 @@ generateCode n (ApplicationNode' _ (BaseFunctionAtom' "call-with-current-continu
       staticProgram [Continuation n],
       generateCode n expr,
       staticProgram [Applicate 1 n]
-    ]
-generateCode n (ApplicationNode' _ (BaseFunctionAtom' name) params) = 
-    combinePrograms [
-      generateCodeList n (reverse params),
-      staticProgram [BaseFunction (baseFunction name) (length params)]
     ]
 generateCode n (ApplicationNode' False expr params) = 
     combinePrograms [
@@ -174,7 +169,6 @@ generateCode n (SetNode' (GlobalAtom' num) expr) =
     generateCode n expr,
     staticProgram [SetGlobal num]
   ]
--- TODO one branch if with return unspecified
 generateCode n (IfNode' condition then' else') = 
   combinePrograms [
     generateCode (appendPath 0 n) condition,
@@ -190,6 +184,7 @@ generateCode n (BodyNode' defNr body) =
     generateCodeList n body,
     staticProgram [Return, BodyClose]
   ]
+generateCode n (PairNode' car cdr) = generateCode n (ApplicationNode' False (BaseFunctionAtom' "cons") [car, cdr])
 generateCode _ obj = staticProgram [operation (toObject obj)]
   where
     operation = if registered then Push else PushLiteral
@@ -238,6 +233,7 @@ toObject (BoolAtom' False) = Object { code = "scheme_new_boolean(FALSE)", regist
 toObject (EmptyAtom') = Object { code = "SCHEME_NULL", registered = False }
 toObject (UnspecifiedAtom') = Object { code = "SCHEME_UNSPECIFIED", registered = False }
 toObject (StringAtom' str) = Object { code = "scheme_new_string(\"" ++ (str >>= escape) ++ "\")", registered = False }
+toObject (BaseFunctionAtom' str) = Object { code = "LAMBDA_BASE(" ++ (baseFunction str) ++ ")", registered = False }
 toObject (SymbolAtom' str) = Object { code = "scheme_new_symbol(\"" ++ (str >>= escape) ++ "\")", registered = False }
 toObject (NumberAtom' (Exact (Integer int))) = Object { 
     code = "scheme_new_number(scheme_exact_integer(integer_create((char[]) " ++ arrayString ++ ", " ++ show len ++ ")))",
@@ -290,16 +286,3 @@ escape '\t' = "\\t"
 escape '\n' = "\\n"
 escape '\r' = "\\r"
 escape c = [c]
-
--- (<start block>, <lambdas>)
--- generate :: MetaNode' -> (String, [String])
--- generate (PairNode' a b) = (generateCode a ++ newline ++ generateCode b)
---   where code_a = generateCode a
-
--- -- without lambdas
--- generateCode :: MetaNode' -> String
--- generateCode (BoolAtom' True) = "scheme_new_boolean(TRUE)"
--- generateCode (BoolAtom' False) = "scheme_new_boolean(False)"
-
-
--- generateCode (PairNode' a b) = "scheme_new_boolean(False)"
