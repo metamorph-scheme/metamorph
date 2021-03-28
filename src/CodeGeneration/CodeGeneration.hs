@@ -251,9 +251,9 @@ toObject (NumberAtom' (Exact (Rational numerator denominator))) = Object {
     [arrayStringN, arrayStringD] = map bytesToArrayString bytes
     [lenN, lenD] = map length bytes
     bytes@[bytesN, bytesD] = map integerToBytes [numerator, denominator]
-toObject (NumberAtom' (Inexact (Rational numerator denominator))) = Object { code = "scheme_new_number(scheme_inexact_rational(" ++ show (fromInteger numerator / fromInteger denominator) ++ "d))", registered = False }
-toObject (NumberAtom' (Inexact (Integer int))) = Object { code = "scheme_new_number(scheme_inexact_integer(" ++ show (fromInteger int :: Double) ++ "d))", registered = False }
-toObject (NumberAtom' (Inexact (Real (InfReal double)))) = Object { code = "scheme_new_number(scheme_inexact_real(" ++ show double ++ "d))", registered = False }
+toObject (NumberAtom' (Inexact (Rational numerator denominator))) = Object { code = "scheme_new_number(scheme_inexact_rational(" ++ show (fromInteger numerator / fromInteger denominator) ++ "))", registered = False }
+toObject (NumberAtom' (Inexact (Integer int))) = Object { code = "scheme_new_number(scheme_inexact_integer(" ++ show (fromInteger int :: Double) ++ "))", registered = False }
+toObject (NumberAtom' (Inexact (Real (InfReal double)))) = Object { code = "scheme_new_number(scheme_inexact_real(" ++ show double ++ "))", registered = False }
 toObject (NumberAtom' (Inexact (Real _))) = error "infinities are not supported"
 toObject (BoundAtom' parent num) = Object { code = "BOUND(" ++ show parent ++ "," ++ show num ++ ")", registered = True }
 toObject (GlobalAtom' num) = Object { code = "GLOBAL_BOUND(" ++ show num ++ ")", registered = True }
