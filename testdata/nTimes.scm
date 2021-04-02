@@ -1,4 +1,4 @@
-(define continuation)
+(define continuation #f)
 (define counter 0)
 
 (define (n-times times func x)
