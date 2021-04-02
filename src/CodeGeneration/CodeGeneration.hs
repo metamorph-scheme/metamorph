@@ -127,13 +127,13 @@ generateCode :: Path -> MetaNode'-> Program
 generateCode n (ApplicationNode' _ (BaseFunctionAtom' "call/cc") [expr]) = 
     combinePrograms [
       staticProgram [Continuation n],
-      generateCode n expr,
+      generateCode (appendPath 0 n) expr,
       staticProgram [Applicate 1 n]
     ]
 generateCode n (ApplicationNode' _ (BaseFunctionAtom' "call-with-current-continuation") [expr]) = 
     combinePrograms [
       staticProgram [Continuation n],
-      generateCode n expr,
+      generateCode (appendPath 0 n) expr,
       staticProgram [Applicate 1 n]
     ]
 generateCode n (ApplicationNode' False expr params) = 
