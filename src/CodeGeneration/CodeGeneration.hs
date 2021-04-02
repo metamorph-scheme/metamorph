@@ -98,7 +98,7 @@ renderExpression = renderExpression'
   where
     renderExpression' (Function (ResolvedPath num)) = "FUNCTION(" ++ show num ++ ")"
     --renderExpression' (Bound parent num) = "BOUND(" ++ show parent ++ "," ++ show num ++ ")"
-    renderExpression' (Lambda variadic (ResolvedPath num) pnum) = "PUSH_LITERAL(" ++ if variadic then "LAMBDA_VARIADIC" else "LAMBDA" ++ "(" ++ show num ++ "," ++ show pnum ++ "))"
+    renderExpression' (Lambda variadic (ResolvedPath num) pnum) = "PUSH_LITERAL(" ++ (if variadic then "LAMBDA_VARIADIC" else "LAMBDA") ++ "(" ++ show num ++ "," ++ show pnum ++ "))"
     renderExpression' (Continuation (ResolvedPath num)) = "PUSH_LITERAL(CONTINUATION(" ++ show num ++ "))"
     --renderExpression' (GlobalBound num) = "GLOBAL_BOUND(" ++ show num ++ ")"
     renderExpression' (Return) = "RETURN"
