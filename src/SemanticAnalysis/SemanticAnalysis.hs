@@ -141,7 +141,7 @@ annotateLambda (LambdaNode params variadic exprs) = do
     pushActivationEntries names
     body' <- annotateBody exprs' True
     popEntries
-    if (\(IdentifierAtom str 0) -> null str) variadic then
+    if (\(IdentifierAtom str _) -> null str) variadic then
         return $ LambdaNode' (length params) False  body'
     else
         return $ LambdaNode' (length params) True body'

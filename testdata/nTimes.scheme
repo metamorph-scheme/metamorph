@@ -1,0 +1,17 @@
+(define continuation)
+(define counter 0)
+
+(define (nTimes times func x)
+    (set! counter (+ counter 1))
+    (if (> times 0)
+        (nTimes (- times 1) func (func x))
+        x))
+
+(define (pow2AndStore8 x)
+    (let 
+        ( (maybeNum (call/cc (lambda (c) (if (= x 8) (set! continuation c))))) )
+        (if (number? maybeNum) maybeNum (* 2 x))))
+
+(write-string (number->string (nTimes 5 pow2AndStore8 1)))
+(newline)
+(if (= counter 6) (write-string (number->string (continuation 5))))
