@@ -2,7 +2,7 @@
 
 # MetaTorph
 
-A soon-to-be R7RS (small) compliant Scheme to C99 compiler, written in Haskell and renamed be be funnier.
+A soon-to-be R7RS (small) compliant Scheme to C99 compiler, written in Haskell and renamed to be funnier.
 
 ## Note
 
